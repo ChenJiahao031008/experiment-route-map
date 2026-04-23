@@ -1,0 +1,104 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-paper: #f6efe4;
+  --color-paper-deep: #efe3cf;
+  --color-note: #fffaf1;
+  --color-ink: #4a3a2c;
+  --color-pencil: #d8c6ad;
+  --color-sun: #f1d28a;
+  --color-success: #d7ead9;
+  --color-success-ink: #41644b;
+  --color-failed: #efd7d4;
+  --color-failed-ink: #8b5149;
+  --color-running: #f6eab9;
+  --color-running-ink: #7b6722;
+  --color-archived: #e2ddd6;
+  --color-archived-ink: #6d6258;
+  --font-title: 'KaiTi', 'STKaiti', 'LXGW WenKai', 'FangSong', serif;
+  --shadow-note: 0 18px 50px rgba(115, 94, 64, 0.12);
+}
+
+:root {
+  color: var(--color-ink);
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.65), transparent 32%),
+    linear-gradient(180deg, #fbf6ee 0%, #f3e8d7 100%);
+  font-family:
+    'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.26)),
+    repeating-linear-gradient(
+      0deg,
+      rgba(163, 132, 90, 0.03) 0,
+      rgba(163, 132, 90, 0.03) 1px,
+      transparent 1px,
+      transparent 28px
+    ),
+    var(--color-paper);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.note-button {
+  @apply inline-flex items-center justify-center rounded-full border border-pencil bg-white/80 px-4 py-2 text-sm font-medium text-ink transition hover:border-ink/35 hover:bg-white disabled:cursor-not-allowed disabled:opacity-40;
+}
+
+.note-button-primary {
+  @apply border-transparent bg-ink text-paper hover:bg-[#3d3128];
+}
+
+.note-button-danger {
+  @apply border-transparent bg-[#9e5f55] text-white hover:bg-[#8e4e45];
+}
+
+.note-input {
+  @apply w-full rounded-2xl border border-pencil bg-note px-4 py-3 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-ink/35 focus:ring-2 focus:ring-sun/60;
+}
+
+.react-flow__attribution {
+  display: none;
+}
+
+.react-flow__controls,
+.react-flow__minimap {
+  border-radius: 16px;
+  border: 1px solid rgba(165, 137, 101, 0.35);
+  overflow: hidden;
+  box-shadow: 0 12px 30px rgba(115, 94, 64, 0.12);
+}
+
+.react-flow__controls-button {
+  background: rgba(255, 250, 241, 0.92);
+  border-bottom-color: rgba(165, 137, 101, 0.22);
+  color: var(--color-ink);
+}
+
+.react-flow__background {
+  opacity: 0.7;
+}
