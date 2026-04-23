@@ -1,26 +1,42 @@
 import { useMemo, useState, type ReactNode } from 'react'
+import ReactMarkdown from 'react-markdown'
 
 import {
   experimentStatuses,
   statusLabels,
+  type ExperimentAttachment,
   type ExperimentDraft,
   type ExperimentNode,
 } from '../../types/experiment'
 
 type ExperimentFormProps = {
   node: ExperimentNode
+  compareNode: ExperimentNode | null
   draft: ExperimentDraft
   hasUnsavedChanges: boolean
+  deleteImpactCount: number
   onChange: (patch: Partial<ExperimentDraft>) => void
   onSave: () => void
   onReset: () => void
   onBranch: () => void
   onDelete: () => void
-  deleteImpactCount: number
+  onClearCompare: () => void
 }
+
+const markdownFields = [
+  { key: 'result', label: '实验结果' },
+  { key: 'conclusion', label: '实验结论' },
+  { key: 'notes', label: '补充备注' },
+] as const
+
+const maxAttachmentSize = 220 * 1024
+const maxAttachmentCount = 4
+
+type MarkdownFieldKey = (typeof markdownFields)[number]['key']
 
 export function ExperimentForm({
   node,
+  compareNode,
   draft,
   hasUnsavedChanges,
   onChange,
@@ -28,9 +44,12 @@ export function ExperimentForm({
   onReset,
   onBranch,
   onDelete,
+  onClearCompare,
   deleteImpactCount,
 }: ExperimentFormProps) {
   const [tagInput, setTagInput] = useState('')
+  const [previewField, setPreviewField] = useState<MarkdownFieldKey | null>(null)
+  const [attachmentError, setAttachmentError] = useState('')
 
   const parentLabel = useMemo(() => (node.parentId ? node.parentId : '根实验'), [node.parentId])
 
@@ -47,6 +66,47 @@ export function ExperimentForm({
 
   const removeTag = (tagToRemove: string) => {
     onChange({ tags: draft.tags.filter((tag) => tag !== tagToRemove) })
+  }
+
+  const removeAttachment = (attachmentId: string) => {
+    onChange({
+      attachments: draft.attachments.filter((attachment) => attachment.id !== attachmentId),
+    })
+  }
+
+  const addAttachment = async (file: File | null) => {
+    if (!file) {
+      return
+    }
+
+    if (!file.type.startsWith('image/')) {
+      setAttachmentError('当前仅支持图片附件。')
+      return
+    }
+
+    if (file.size > maxAttachmentSize) {
+      setAttachmentError('单张图片需小于 220KB，避免超出本地存储限制。')
+      return
+    }
+
+    if (draft.attachments.length >= maxAttachmentCount) {
+      setAttachmentError(`每个实验最多保留 ${maxAttachmentCount} 张图片。`)
+      return
+    }
+
+    const dataUrl = await readFileAsDataUrl(file)
+    const nextAttachment: ExperimentAttachment = {
+      id: crypto.randomUUID(),
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      kind: 'image',
+      dataUrl,
+      createdAt: new Date().toISOString(),
+    }
+
+    setAttachmentError('')
+    onChange({ attachments: [...draft.attachments, nextAttachment] })
   }
 
   return (
@@ -71,6 +131,25 @@ export function ExperimentForm({
           </div>
         </div>
       </div>
+
+      {compareNode ? (
+        <section className="rounded-[28px] border border-[#b9d3db] bg-[#f2fbfd] p-5 shadow-note">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.24em] text-[#53707b]">对比模式</p>
+              <h3 className="mt-2 font-title text-2xl text-ink">当前节点 vs 对比目标</h3>
+            </div>
+            <button type="button" className="note-button" onClick={onClearCompare}>
+              关闭对比
+            </button>
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-2">
+            <CompareCard title="当前节点" node={node} />
+            <CompareCard title="对比目标" node={compareNode} />
+          </div>
+        </section>
+      ) : null}
 
       <section className="space-y-4 rounded-[28px] border border-pencil bg-white/85 p-5 shadow-note">
         <Field label="实验名称" htmlFor="title">
@@ -127,32 +206,39 @@ export function ExperimentForm({
           />
         </Field>
 
-        <Field label="实验结果" htmlFor="result">
-          <textarea
-            id="result"
-            value={draft.result}
-            onChange={(event) => onChange({ result: event.target.value })}
-            className="note-input min-h-28 resize-y"
-          />
-        </Field>
+        {markdownFields.map(({ key, label }) => {
+          const value = draft[key]
+          const isPreview = previewField === key
+          const hint =
+            key === 'conclusion' ? '回答“这次实验说明了什么”，建议写成一句明确判断。' : undefined
 
-        <Field label="实验结论" htmlFor="conclusion" hint="回答“这次实验说明了什么”，建议写成一句明确判断。">
-          <textarea
-            id="conclusion"
-            value={draft.conclusion}
-            onChange={(event) => onChange({ conclusion: event.target.value })}
-            className="note-input min-h-28 resize-y"
-          />
-        </Field>
+          return (
+            <Field key={key} label={label} htmlFor={key} hint={hint}>
+              <div className="mb-2 flex justify-end">
+                <button
+                  type="button"
+                  className="node-chip"
+                  onClick={() => setPreviewField((current) => (current === key ? null : key))}
+                >
+                  {isPreview ? '返回编辑' : 'Markdown 预览'}
+                </button>
+              </div>
 
-        <Field label="补充备注" htmlFor="notes">
-          <textarea
-            id="notes"
-            value={draft.notes}
-            onChange={(event) => onChange({ notes: event.target.value })}
-            className="note-input min-h-24 resize-y"
-          />
-        </Field>
+              {isPreview ? (
+                <div className="markdown-note min-h-28 rounded-2xl border border-pencil bg-note px-4 py-3">
+                  {value.trim() ? <ReactMarkdown>{value}</ReactMarkdown> : '暂无内容可预览。'}
+                </div>
+              ) : (
+                <textarea
+                  id={key}
+                  value={value}
+                  onChange={(event) => onChange({ [key]: event.target.value } as Partial<ExperimentDraft>)}
+                  className="note-input min-h-28 resize-y"
+                />
+              )}
+            </Field>
+          )
+        })}
 
         <Field label="标签" htmlFor="tagInput">
           <div className="flex gap-2">
@@ -187,6 +273,44 @@ export function ExperimentForm({
                 >
                   #{tag}
                 </button>
+              ))
+            )}
+          </div>
+        </Field>
+
+        <Field
+          label="图片附件"
+          htmlFor="attachments"
+          hint={`支持最多 ${maxAttachmentCount} 张图片；单张需小于 ${Math.round(maxAttachmentSize / 1024)}KB。`}
+        >
+          <input
+            id="attachments"
+            type="file"
+            accept="image/*"
+            className="note-input file:mr-3 file:rounded-full file:border-0 file:bg-ink file:px-3 file:py-1.5 file:text-paper"
+            onChange={async (event) => {
+              const input = event.currentTarget
+              const [file] = Array.from(input.files ?? [])
+              await addAttachment(file ?? null)
+              input.value = ''
+            }}
+          />
+          {attachmentError ? <p className="mt-2 text-sm text-[#9e5f55]">{attachmentError}</p> : null}
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {draft.attachments.length === 0 ? (
+              <span className="text-sm text-ink/45">暂无图片附件</span>
+            ) : (
+              draft.attachments.map((attachment) => (
+                <div key={attachment.id} className="rounded-2xl border border-pencil bg-note p-3">
+                  <img src={attachment.dataUrl} alt={attachment.name} className="h-32 w-full rounded-xl object-cover" />
+                  <div className="mt-2 flex items-center justify-between gap-3 text-sm text-ink/70">
+                    <span className="truncate">{attachment.name}</span>
+                    <button type="button" className="node-chip" onClick={() => removeAttachment(attachment.id)}>
+                      删除
+                    </button>
+                  </div>
+                </div>
               ))
             )}
           </div>
@@ -233,3 +357,62 @@ function Field({ label, htmlFor, hint, children }: FieldProps) {
     </label>
   )
 }
+
+type CompareCardProps = {
+  title: string
+  node: ExperimentNode
+}
+
+function CompareCard({ title, node }: CompareCardProps) {
+  return (
+    <div className="rounded-[24px] border border-[#c7dfe6] bg-white/85 p-4">
+      <div className="mb-3 border-b border-dashed border-[#c7dfe6] pb-3">
+        <p className="text-xs uppercase tracking-[0.24em] text-[#53707b]">{title}</p>
+        <h4 className="mt-2 text-lg font-semibold text-ink">{node.title}</h4>
+      </div>
+
+      <dl className="space-y-3 text-sm text-ink/75">
+        <CompareItem label="状态" value={statusLabels[node.status]} />
+        <CompareItem label="时间" value={node.timestamp} />
+        <CompareItem label="标签" value={node.tags.length ? node.tags.join(', ') : '暂无'} />
+        <CompareItem label="改动内容" value={node.changeSummary || '暂无'} />
+        <CompareItem label="实验结果" value={node.result || '暂无'} markdown />
+        <CompareItem label="实验结论" value={node.conclusion || '暂无'} markdown />
+        <CompareItem label="补充备注" value={node.notes || '暂无'} markdown />
+      </dl>
+
+      {node.attachments.length > 0 ? (
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          {node.attachments.map((attachment) => (
+            <img key={attachment.id} src={attachment.dataUrl} alt={attachment.name} className="h-24 w-full rounded-xl object-cover" />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+type CompareItemProps = {
+  label: string
+  value: string
+  markdown?: boolean
+}
+
+function CompareItem({ label, value, markdown = false }: CompareItemProps) {
+  return (
+    <div>
+      <dt className="text-xs uppercase tracking-[0.2em] text-ink/45">{label}</dt>
+      <dd className="mt-1">
+        {markdown ? <div className="markdown-note"><ReactMarkdown>{value}</ReactMarkdown></div> : value}
+      </dd>
+    </div>
+  )
+}
+
+const readFileAsDataUrl = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result ?? ''))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })

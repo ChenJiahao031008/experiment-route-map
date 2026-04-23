@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
 import {
   addChildExperiment,
@@ -8,10 +9,12 @@ import {
   createRootExperiment,
   deleteExperimentSubtree,
   getNodeById,
+  normalizeDocument,
   updateExperimentNode,
 } from '../lib/graph'
 import {
   defaultExperimentDraft,
+  type ExperimentAttachment,
   type ExperimentDocument,
   type ExperimentDraft,
   type ExperimentNode,
@@ -22,6 +25,7 @@ import {
 type ExperimentStoreState = {
   document: ExperimentDocument
   selectedNodeId: ExperimentNodeId | null
+  compareNodeId: ExperimentNodeId | null
   detailDraft: ExperimentDraft
   searchQuery: string
   statusFilters: ExperimentStatus[]
@@ -29,17 +33,26 @@ type ExperimentStoreState = {
 
 type ExperimentStoreActions = {
   selectNode: (nodeId: ExperimentNodeId | null) => void
+  setCompareNode: (nodeId: ExperimentNodeId | null) => void
+  clearCompareNode: () => void
   updateDetailDraft: (patch: Partial<ExperimentDraft>) => void
   resetDetailDraft: () => void
   createExperiment: () => void
   branchFromSelected: () => void
+  branchFromNode: (nodeId: ExperimentNodeId) => void
   saveSelectedNode: () => void
+  cycleNodeStatus: (nodeId: ExperimentNodeId) => void
+  updateNodeTitle: (nodeId: ExperimentNodeId, title: string) => void
   deleteSelectedNode: () => void
   setSearchQuery: (query: string) => void
   toggleStatusFilter: (status: ExperimentStatus) => void
+  addDraftAttachment: (attachment: ExperimentAttachment) => void
+  removeDraftAttachment: (attachmentId: string) => void
 }
 
 type ExperimentStore = ExperimentStoreState & ExperimentStoreActions
+
+const persistVersion = 1
 
 const seedDocument = (): ExperimentDocument => {
   const initial = createInitialDocument()
@@ -97,147 +110,266 @@ const getDraftFromNode = (node: ExperimentNode | null): ExperimentDraft => {
     tags: [...node.tags],
     notes: node.notes,
     branchLabel: node.branchLabel,
+    attachments: [...node.attachments],
   }
 }
 
-export const useExperimentStore = create<ExperimentStore>((set, get) => {
-  const document = seedDocument()
-  const selectedNodeId = document.rootId
+const statusOrder: ExperimentStatus[] = ['running', 'success', 'failed', 'archived']
 
-  return {
-    document,
-    selectedNodeId,
-    detailDraft: getDraftFromNode(getNodeById(document, selectedNodeId)),
-    searchQuery: '',
-    statusFilters: [],
+const cycleStatus = (status: ExperimentStatus): ExperimentStatus => {
+  const currentIndex = statusOrder.indexOf(status)
+  const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % statusOrder.length
+  return statusOrder[nextIndex]!
+}
 
-    selectNode: (nodeId) => {
-      const node = getNodeById(get().document, nodeId)
-      set({
-        selectedNodeId: nodeId,
-        detailDraft: getDraftFromNode(node),
-      })
-    },
+export const useExperimentStore = create<ExperimentStore>()(
+  persist(
+    (set, get) => {
+      const document = seedDocument()
+      const selectedNodeId = document.rootId
 
-    updateDetailDraft: (patch) => {
-      set((state) => ({
-        detailDraft: {
-          ...state.detailDraft,
-          ...patch,
-          tags: patch.tags ? [...patch.tags] : state.detailDraft.tags,
+      return {
+        document,
+        selectedNodeId,
+        compareNodeId: null,
+        detailDraft: getDraftFromNode(getNodeById(document, selectedNodeId)),
+        searchQuery: '',
+        statusFilters: [],
+
+        selectNode: (nodeId) => {
+          const node = getNodeById(get().document, nodeId)
+          set({
+            selectedNodeId: nodeId,
+            detailDraft: getDraftFromNode(node),
+          })
         },
-      }))
+
+        setCompareNode: (nodeId) => set({ compareNodeId: nodeId }),
+        clearCompareNode: () => set({ compareNodeId: null }),
+
+        updateDetailDraft: (patch) => {
+          set((state) => ({
+            detailDraft: {
+              ...state.detailDraft,
+              ...patch,
+              tags: patch.tags ? [...patch.tags] : state.detailDraft.tags,
+              attachments: patch.attachments
+                ? [...patch.attachments]
+                : state.detailDraft.attachments,
+            },
+          }))
+        },
+
+        resetDetailDraft: () => {
+          const { document: currentDocument, selectedNodeId: currentNodeId } = get()
+          set({
+            detailDraft: getDraftFromNode(getNodeById(currentDocument, currentNodeId)),
+          })
+        },
+
+        createExperiment: () => {
+          const state = get()
+
+          if (!state.document.rootId) {
+            const { document: nextDocument, createdNodeId } = createRootExperiment(state.document, {
+              title: '新实验',
+            })
+
+            set({
+              document: nextDocument,
+              selectedNodeId: createdNodeId,
+              detailDraft: getDraftFromNode(getNodeById(nextDocument, createdNodeId)),
+            })
+            return
+          }
+
+          if (!state.selectedNodeId) {
+            return
+          }
+
+          get().branchFromNode(state.selectedNodeId)
+        },
+
+        branchFromSelected: () => {
+          const state = get()
+          if (!state.selectedNodeId) {
+            return
+          }
+
+          get().branchFromNode(state.selectedNodeId)
+        },
+
+        branchFromNode: (nodeId) => {
+          const state = get()
+          const { document: nextDocument, createdNodeId } = addChildExperiment(
+            state.document,
+            nodeId,
+            buildBranchDraft(state.document, nodeId),
+          )
+
+          set({
+            document: nextDocument,
+            selectedNodeId: createdNodeId,
+            detailDraft: getDraftFromNode(getNodeById(nextDocument, createdNodeId)),
+          })
+        },
+
+        saveSelectedNode: () => {
+          const state = get()
+          if (!state.selectedNodeId) {
+            return
+          }
+
+          const nextDocument = updateExperimentNode(
+            state.document,
+            state.selectedNodeId,
+            state.detailDraft,
+          )
+
+          set({
+            document: nextDocument,
+            detailDraft: getDraftFromNode(getNodeById(nextDocument, state.selectedNodeId)),
+          })
+        },
+
+        cycleNodeStatus: (nodeId) => {
+          const state = get()
+          const node = getNodeById(state.document, nodeId)
+          if (!node) {
+            return
+          }
+
+          const nextDocument = updateExperimentNode(state.document, nodeId, {
+            status: cycleStatus(node.status),
+          })
+
+          set((currentState) => ({
+            document: nextDocument,
+            detailDraft:
+              currentState.selectedNodeId === nodeId
+                ? getDraftFromNode(getNodeById(nextDocument, nodeId))
+                : currentState.detailDraft,
+          }))
+        },
+
+        updateNodeTitle: (nodeId, title) => {
+          const state = get()
+          const nextDocument = updateExperimentNode(state.document, nodeId, { title })
+
+          set((currentState) => ({
+            document: nextDocument,
+            detailDraft:
+              currentState.selectedNodeId === nodeId
+                ? getDraftFromNode(getNodeById(nextDocument, nodeId))
+                : currentState.detailDraft,
+          }))
+        },
+
+        deleteSelectedNode: () => {
+          const state = get()
+          if (!state.selectedNodeId) {
+            return
+          }
+
+          const { document: nextDocument, nextSelectedNodeId } = deleteExperimentSubtree(
+            state.document,
+            state.selectedNodeId,
+          )
+
+          set({
+            document: nextDocument,
+            selectedNodeId: nextSelectedNodeId,
+            compareNodeId:
+              state.compareNodeId === state.selectedNodeId ? null : state.compareNodeId,
+            detailDraft: getDraftFromNode(getNodeById(nextDocument, nextSelectedNodeId)),
+          })
+        },
+
+        setSearchQuery: (query) => set({ searchQuery: query }),
+
+        toggleStatusFilter: (status) => {
+          set((state) => ({
+            statusFilters: state.statusFilters.includes(status)
+              ? state.statusFilters.filter((item) => item !== status)
+              : [...state.statusFilters, status],
+          }))
+        },
+
+        addDraftAttachment: (attachment) => {
+          set((state) => ({
+            detailDraft: {
+              ...state.detailDraft,
+              attachments: [...state.detailDraft.attachments, attachment],
+            },
+          }))
+        },
+
+        removeDraftAttachment: (attachmentId) => {
+          set((state) => ({
+            detailDraft: {
+              ...state.detailDraft,
+              attachments: state.detailDraft.attachments.filter(
+                (attachment) => attachment.id !== attachmentId,
+              ),
+            },
+          }))
+        },
+      }
     },
+    {
+      name: 'vis-experiment-store',
+      version: persistVersion,
+      migrate: (persistedState) => {
+        if (!persistedState || typeof persistedState !== 'object') {
+          return persistedState
+        }
 
-    resetDetailDraft: () => {
-      const { document: currentDocument, selectedNodeId: currentNodeId } = get()
-      set({
-        detailDraft: getDraftFromNode(getNodeById(currentDocument, currentNodeId)),
-      })
-    },
+        const state = persistedState as Partial<ExperimentStoreState>
+        const nextDocument = normalizeDocument(state.document) ?? seedDocument()
+        const selectedNodeId =
+          state.selectedNodeId && nextDocument.nodesById[state.selectedNodeId]
+            ? state.selectedNodeId
+            : nextDocument.rootId
+        const compareNodeId =
+          state.compareNodeId && nextDocument.nodesById[state.compareNodeId]
+            ? state.compareNodeId
+            : null
+        const selectedNode = getNodeById(nextDocument, selectedNodeId)
 
-    createExperiment: () => {
-      const state = get()
-
-      if (!state.document.rootId) {
-        const { document: nextDocument, createdNodeId } = createRootExperiment(state.document, {
-          title: '新实验',
-        })
-
-        set({
+        return {
+          ...state,
           document: nextDocument,
-          selectedNodeId: createdNodeId,
-          detailDraft: getDraftFromNode(getNodeById(nextDocument, createdNodeId)),
-        })
-        return
-      }
-
-      if (!state.selectedNodeId) {
-        return
-      }
-
-      const { document: nextDocument, createdNodeId } = addChildExperiment(
-        state.document,
-        state.selectedNodeId,
-        buildBranchDraft(state.document, state.selectedNodeId),
-      )
-
-      set({
-        document: nextDocument,
-        selectedNodeId: createdNodeId,
-        detailDraft: getDraftFromNode(getNodeById(nextDocument, createdNodeId)),
-      })
+          selectedNodeId,
+          compareNodeId,
+          detailDraft: {
+            ...getDraftFromNode(selectedNode),
+            ...(state.detailDraft ?? {}),
+            tags: state.detailDraft?.tags ? [...state.detailDraft.tags] : getDraftFromNode(selectedNode).tags,
+            attachments: state.detailDraft?.attachments
+              ? [...state.detailDraft.attachments]
+              : getDraftFromNode(selectedNode).attachments,
+          },
+          searchQuery: state.searchQuery ?? '',
+          statusFilters: state.statusFilters ?? [],
+        }
+      },
+      partialize: (state) => ({
+        document: state.document,
+        selectedNodeId: state.selectedNodeId,
+        compareNodeId: state.compareNodeId,
+        detailDraft: state.detailDraft,
+        searchQuery: state.searchQuery,
+        statusFilters: state.statusFilters,
+      }),
     },
-
-    branchFromSelected: () => {
-      const state = get()
-      if (!state.selectedNodeId) {
-        return
-      }
-
-      const { document: nextDocument, createdNodeId } = addChildExperiment(
-        state.document,
-        state.selectedNodeId,
-        buildBranchDraft(state.document, state.selectedNodeId),
-      )
-
-      set({
-        document: nextDocument,
-        selectedNodeId: createdNodeId,
-        detailDraft: getDraftFromNode(getNodeById(nextDocument, createdNodeId)),
-      })
-    },
-
-    saveSelectedNode: () => {
-      const state = get()
-      if (!state.selectedNodeId) {
-        return
-      }
-
-      const nextDocument = updateExperimentNode(
-        state.document,
-        state.selectedNodeId,
-        state.detailDraft,
-      )
-
-      set({
-        document: nextDocument,
-        detailDraft: getDraftFromNode(getNodeById(nextDocument, state.selectedNodeId)),
-      })
-    },
-
-    deleteSelectedNode: () => {
-      const state = get()
-      if (!state.selectedNodeId) {
-        return
-      }
-
-      const { document: nextDocument, nextSelectedNodeId } = deleteExperimentSubtree(
-        state.document,
-        state.selectedNodeId,
-      )
-
-      set({
-        document: nextDocument,
-        selectedNodeId: nextSelectedNodeId,
-        detailDraft: getDraftFromNode(getNodeById(nextDocument, nextSelectedNodeId)),
-      })
-    },
-
-    setSearchQuery: (query) => set({ searchQuery: query }),
-
-    toggleStatusFilter: (status) => {
-      set((state) => ({
-        statusFilters: state.statusFilters.includes(status)
-          ? state.statusFilters.filter((item) => item !== status)
-          : [...state.statusFilters, status],
-      }))
-    },
-  }
-})
+  ),
+)
 
 export const useSelectedExperiment = () =>
   useExperimentStore((state) => getNodeById(state.document, state.selectedNodeId))
+
+export const useCompareExperiment = () =>
+  useExperimentStore((state) => getNodeById(state.document, state.compareNodeId))
 
 export const useHasUnsavedChanges = () =>
   useExperimentStore((state) => {
@@ -256,7 +388,9 @@ export const useHasUnsavedChanges = () =>
       node.timestamp !== draft.timestamp ||
       node.notes !== draft.notes ||
       node.branchLabel !== draft.branchLabel ||
-      node.tags.join('|') !== draft.tags.join('|')
+      node.tags.join('|') !== draft.tags.join('|') ||
+      node.attachments.length !== draft.attachments.length ||
+      node.attachments.some((attachment, index) => attachment.id !== draft.attachments[index]?.id)
     )
   })
 

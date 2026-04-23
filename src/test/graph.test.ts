@@ -3,10 +3,12 @@ import { describe, expect, it } from 'vitest'
 import {
   addChildExperiment,
   buildBranchDraft,
+  computeTreeLayout,
   createInitialDocument,
   createRootExperiment,
   deleteExperimentSubtree,
   getVisibleNodeIds,
+  normalizeDocument,
   serializeExperimentDocument,
 } from '../lib/graph'
 
@@ -85,5 +87,57 @@ describe('graph helpers', () => {
     })
 
     expect(() => JSON.parse(serializeExperimentDocument(document))).not.toThrow()
+  })
+
+  it('normalizes documents without attachments', () => {
+    const normalized = normalizeDocument({
+      rootId: 'root',
+      nodesById: {
+        root: {
+          id: 'root',
+          parentId: null,
+          childIds: [],
+          title: 'Root',
+          changeSummary: '',
+          result: '',
+          conclusion: '',
+          status: 'running',
+          timestamp: '2026-04-23T09:00',
+          tags: [],
+          notes: '',
+          branchLabel: '',
+        },
+      },
+    })
+
+    expect(normalized?.version).toBe(1)
+    expect(normalized?.nodesById.root?.attachments).toEqual([])
+  })
+
+  it('computes subtree-aware layout without overlapping sibling branches', () => {
+    const initial = createInitialDocument()
+    const { document: rootDocument, createdNodeId: rootId } = createRootExperiment(initial, {
+      title: 'Root',
+    })
+    const { document: firstBranchDocument, createdNodeId: childA } = addChildExperiment(
+      rootDocument,
+      rootId,
+      { title: 'A' },
+    )
+    const { document: secondBranchDocument, createdNodeId: childB } = addChildExperiment(
+      firstBranchDocument,
+      rootId,
+      { title: 'B' },
+    )
+    const { document: nestedDocument } = addChildExperiment(secondBranchDocument, childA, {
+      title: 'A1',
+    })
+
+    const layout = computeTreeLayout(nestedDocument)
+
+    expect(layout[rootId]?.x).toBe(0)
+    expect(layout[childA]?.x).toBe(1)
+    expect(layout[childB]?.x).toBe(1)
+    expect(layout[childA]?.y).not.toBe(layout[childB]?.y)
   })
 })

@@ -1,5 +1,6 @@
 import { ExperimentForm } from '../editor/ExperimentForm'
 import {
+  useCompareExperiment,
   useDeleteImpactCount,
   useExperimentStore,
   useHasUnsavedChanges,
@@ -10,14 +11,19 @@ type RightDetailPanelProps = {
   onCreateRoot: () => void
 }
 
+const confirmDelete = (deleteImpactCount: number) =>
+  window.confirm(`确定删除当前实验及其 ${deleteImpactCount} 个节点的整棵子树吗？此操作不可撤销。`)
+
 export function RightDetailPanel({ onCreateRoot }: RightDetailPanelProps) {
   const selectedNode = useSelectedExperiment()
+  const compareNode = useCompareExperiment()
   const detailDraft = useExperimentStore((state) => state.detailDraft)
   const updateDetailDraft = useExperimentStore((state) => state.updateDetailDraft)
   const saveSelectedNode = useExperimentStore((state) => state.saveSelectedNode)
   const resetDetailDraft = useExperimentStore((state) => state.resetDetailDraft)
   const branchFromSelected = useExperimentStore((state) => state.branchFromSelected)
   const deleteSelectedNode = useExperimentStore((state) => state.deleteSelectedNode)
+  const clearCompareNode = useExperimentStore((state) => state.clearCompareNode)
   const deleteImpactCount = useDeleteImpactCount()
   const hasUnsavedChanges = useHasUnsavedChanges()
 
@@ -42,6 +48,7 @@ export function RightDetailPanel({ onCreateRoot }: RightDetailPanelProps) {
     <aside className="h-full rounded-[32px] border border-pencil bg-white/85 p-6 shadow-note">
       <ExperimentForm
         node={selectedNode}
+        compareNode={compareNode}
         draft={detailDraft}
         hasUnsavedChanges={hasUnsavedChanges}
         deleteImpactCount={deleteImpactCount}
@@ -49,12 +56,9 @@ export function RightDetailPanel({ onCreateRoot }: RightDetailPanelProps) {
         onSave={saveSelectedNode}
         onReset={resetDetailDraft}
         onBranch={branchFromSelected}
+        onClearCompare={clearCompareNode}
         onDelete={() => {
-          const confirmed = window.confirm(
-            `确定删除当前实验及其 ${deleteImpactCount} 个节点的整棵子树吗？此操作不可撤销。`,
-          )
-
-          if (confirmed) {
+          if (confirmDelete(deleteImpactCount)) {
             deleteSelectedNode()
           }
         }}

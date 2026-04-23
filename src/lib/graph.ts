@@ -1,5 +1,7 @@
 import {
   defaultExperimentDraft,
+  documentVersion,
+  type ExperimentAttachment,
   type ExperimentDocument,
   type ExperimentDraft,
   type ExperimentNode,
@@ -20,6 +22,70 @@ const nowIso = () => new Date().toISOString()
 const toTimestampValue = (timestamp: string) => {
   const date = new Date(timestamp)
   return Number.isNaN(date.getTime()) ? Number.NEGATIVE_INFINITY : date.getTime()
+}
+
+const normalizeAttachment = (attachment: Partial<ExperimentAttachment>): ExperimentAttachment => ({
+  id: attachment.id ?? createNodeId(),
+  name: attachment.name ?? '未命名图片',
+  type: attachment.type ?? 'image/png',
+  size: attachment.size ?? 0,
+  kind: 'image',
+  dataUrl: attachment.dataUrl ?? '',
+  createdAt: attachment.createdAt ?? nowIso(),
+})
+
+const normalizeAttachments = (attachments: Partial<ExperimentAttachment>[] | undefined) =>
+  (attachments ?? []).map(normalizeAttachment)
+
+export const normalizeDocument = (raw: unknown): ExperimentDocument | null => {
+  if (!raw || typeof raw !== 'object') {
+    return null
+  }
+
+  const candidate = raw as {
+    version?: number
+    rootId?: string | null
+    nodesById?: Record<string, Partial<ExperimentNode>>
+  }
+
+  if (!candidate.nodesById || typeof candidate.nodesById !== 'object') {
+    return null
+  }
+
+  const nodesById = Object.fromEntries(
+    Object.entries(candidate.nodesById).map(([id, node]) => {
+      const baseDraft = {
+        ...defaultExperimentDraft(),
+        ...node,
+      }
+
+      const normalizedNode: ExperimentNode = {
+        id,
+        parentId: node.parentId ?? null,
+        childIds: Array.isArray(node.childIds) ? [...node.childIds] : [],
+        title: baseDraft.title,
+        changeSummary: baseDraft.changeSummary,
+        result: baseDraft.result,
+        conclusion: baseDraft.conclusion,
+        status: baseDraft.status,
+        timestamp: baseDraft.timestamp,
+        tags: Array.isArray(baseDraft.tags) ? [...baseDraft.tags] : [],
+        notes: baseDraft.notes,
+        branchLabel: baseDraft.branchLabel,
+        attachments: normalizeAttachments(node.attachments),
+        createdAt: node.createdAt ?? nowIso(),
+        updatedAt: node.updatedAt ?? node.createdAt ?? nowIso(),
+      }
+
+      return [id, normalizedNode]
+    }),
+  )
+
+  return {
+    version: documentVersion,
+    rootId: candidate.rootId ?? null,
+    nodesById,
+  }
 }
 
 export const createExperimentNode = (
@@ -45,12 +111,14 @@ export const createExperimentNode = (
     tags: [...baseDraft.tags],
     notes: baseDraft.notes,
     branchLabel: baseDraft.branchLabel,
+    attachments: normalizeAttachments(baseDraft.attachments),
     createdAt,
     updatedAt: createdAt,
   }
 }
 
 export const createInitialDocument = (): ExperimentDocument => ({
+  version: documentVersion,
   rootId: null,
   nodesById: {},
 })
@@ -70,6 +138,7 @@ export const createRootExperiment = (
 
   return {
     document: {
+      ...document,
       rootId: rootNode.id,
       nodesById: {
         [rootNode.id]: rootNode,
@@ -133,6 +202,7 @@ export const buildBranchDraft = (
     tags: [...parentNode.tags],
     notes: '',
     branchLabel: `分支 ${branchIndex}`,
+    attachments: [],
     changeSummary: '',
     result: '',
     conclusion: '',
@@ -154,6 +224,7 @@ export const updateExperimentNode = (
     ...node,
     ...patch,
     tags: patch.tags ? [...patch.tags] : node.tags,
+    attachments: patch.attachments ? normalizeAttachments(patch.attachments) : node.attachments,
     updatedAt: nowIso(),
   }
 
@@ -210,6 +281,7 @@ export const deleteExperimentSubtree = (
 
   return {
     document: {
+      ...document,
       rootId: node.parentId ? document.rootId : null,
       nodesById,
     },
@@ -228,19 +300,6 @@ export const getExperimentDepth = (
   }
 
   return getExperimentDepth(document, node.parentId) + 1
-}
-
-export const getSiblingIndex = (
-  document: ExperimentDocument,
-  nodeId: ExperimentNodeId,
-): number => {
-  const node = document.nodesById[nodeId]
-  if (!node?.parentId) {
-    return 0
-  }
-
-  const parentNode = document.nodesById[node.parentId]
-  return parentNode ? parentNode.childIds.indexOf(nodeId) : 0
 }
 
 export const getNodePath = (
@@ -296,6 +355,54 @@ export const getVisibleNodeIds = (
     .filter((node) => matchesSearch(node, searchQuery) && matchesStatusFilter(node, statusFilters))
     .sort((left, right) => toTimestampValue(left.timestamp) - toTimestampValue(right.timestamp))
     .map((node) => node.id)
+
+const getSubtreeWeight = (document: ExperimentDocument, nodeId: ExperimentNodeId): number => {
+  const node = document.nodesById[nodeId]
+  if (!node || node.childIds.length === 0) {
+    return 1
+  }
+
+  return node.childIds.reduce((sum, childId) => sum + getSubtreeWeight(document, childId), 0)
+}
+
+const assignTreeLayout = (
+  document: ExperimentDocument,
+  nodeId: ExperimentNodeId,
+  startRow: number,
+  positions: Record<ExperimentNodeId, { x: number; y: number }>,
+) => {
+  const node = document.nodesById[nodeId]
+  if (!node) {
+    return startRow
+  }
+
+  const depth = getExperimentDepth(document, nodeId)
+  const subtreeWeight = getSubtreeWeight(document, nodeId)
+  const centerRow = startRow + (subtreeWeight - 1) / 2
+
+  positions[nodeId] = {
+    x: depth,
+    y: centerRow,
+  }
+
+  let nextRow = startRow
+  node.childIds.forEach((childId) => {
+    assignTreeLayout(document, childId, nextRow, positions)
+    nextRow += getSubtreeWeight(document, childId)
+  })
+
+  return startRow + subtreeWeight
+}
+
+export const computeTreeLayout = (document: ExperimentDocument) => {
+  const positions: Record<ExperimentNodeId, { x: number; y: number }> = {}
+
+  if (document.rootId) {
+    assignTreeLayout(document, document.rootId, 0, positions)
+  }
+
+  return positions
+}
 
 export const countSubtreeNodes = (document: ExperimentDocument, nodeId: ExperimentNodeId) =>
   collectSubtreeIds(document, nodeId).length

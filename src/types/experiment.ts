@@ -4,6 +4,18 @@ export type ExperimentStatus = (typeof experimentStatuses)[number]
 
 export type ExperimentNodeId = string
 
+export type AttachmentKind = 'image'
+
+export type ExperimentAttachment = {
+  id: string
+  name: string
+  type: string
+  size: number
+  kind: AttachmentKind
+  dataUrl: string
+  createdAt: string
+}
+
 export type ExperimentNode = {
   id: ExperimentNodeId
   parentId: ExperimentNodeId | null
@@ -17,6 +29,7 @@ export type ExperimentNode = {
   tags: string[]
   notes: string
   branchLabel: string
+  attachments: ExperimentAttachment[]
   createdAt: string
   updatedAt: string
 }
@@ -32,12 +45,16 @@ export type ExperimentDraft = Pick<
   | 'tags'
   | 'notes'
   | 'branchLabel'
+  | 'attachments'
 >
 
 export type ExperimentDocument = {
+  version: 1
   rootId: ExperimentNodeId | null
   nodesById: Record<ExperimentNodeId, ExperimentNode>
 }
+
+export const documentVersion = 1 as const
 
 export const defaultExperimentDraft = (): ExperimentDraft => ({
   title: '',
@@ -49,6 +66,7 @@ export const defaultExperimentDraft = (): ExperimentDraft => ({
   tags: [],
   notes: '',
   branchLabel: '',
+  attachments: [],
 })
 
 export const statusLabels: Record<ExperimentStatus, string> = {

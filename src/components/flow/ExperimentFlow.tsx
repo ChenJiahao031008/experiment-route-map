@@ -10,21 +10,24 @@ import ReactFlow, {
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 
-import {
-  getExperimentDepth,
-  getNodePath,
-  getSiblingIndex,
-  getVisibleNodeIds,
-} from '../../lib/graph'
+import { computeTreeLayout, getNodePath, getVisibleNodeIds } from '../../lib/graph'
 import { useExperimentStore } from '../../store/experimentStore'
 import { ExperimentNodeCard, type ExperimentNodeData } from './ExperimentNodeCard'
+
+const xGap = 360
+const yGap = 220
 
 const nodeTypes: NodeTypes = {
   experiment: ExperimentNodeCard,
 }
 
-const xGap = 360
-const yGap = 220
+const defaultEdgeOptions = {
+  type: 'smoothstep' as const,
+}
+
+const proOptions = {
+  hideAttribution: true,
+}
 
 type ExperimentFlowProps = {
   onCreateRoot: () => void
@@ -33,9 +36,14 @@ type ExperimentFlowProps = {
 export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
   const document = useExperimentStore((state) => state.document)
   const selectedNodeId = useExperimentStore((state) => state.selectedNodeId)
+  const compareNodeId = useExperimentStore((state) => state.compareNodeId)
   const searchQuery = useExperimentStore((state) => state.searchQuery)
   const statusFilters = useExperimentStore((state) => state.statusFilters)
   const selectNode = useExperimentStore((state) => state.selectNode)
+  const branchFromNode = useExperimentStore((state) => state.branchFromNode)
+  const cycleNodeStatus = useExperimentStore((state) => state.cycleNodeStatus)
+  const setCompareNode = useExperimentStore((state) => state.setCompareNode)
+  const updateNodeTitle = useExperimentStore((state) => state.updateNodeTitle)
 
   const visibleNodeIds = useMemo(
     () => getVisibleNodeIds(document, searchQuery, statusFilters),
@@ -45,24 +53,25 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
     () => getNodePath(document, selectedNodeId),
     [document, selectedNodeId],
   )
+  const layout = useMemo(() => computeTreeLayout(document), [document])
 
   const visibleIdSet = useMemo(() => new Set(visibleNodeIds), [visibleNodeIds])
   const selectedPathSet = useMemo(() => new Set(selectedPath), [selectedPath])
 
   const { nodes, edges } = useMemo(() => {
     const nextNodes: Node<ExperimentNodeData>[] = Object.values(document.nodesById).map((node) => {
-      const depth = getExperimentDepth(document, node.id)
-      const siblingIndex = getSiblingIndex(document, node.id)
+      const position = layout[node.id] ?? { x: 0, y: 0 }
       const isVisible = visibleIdSet.has(node.id)
 
       return {
         id: node.id,
         type: 'experiment',
         position: {
-          x: depth * xGap,
-          y: siblingIndex * yGap,
+          x: position.x * xGap,
+          y: position.y * yGap,
         },
         data: {
+          nodeId: node.id,
           title: node.title,
           changeSummary: node.changeSummary,
           conclusion: node.conclusion,
@@ -70,7 +79,14 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
           timestamp: node.timestamp,
           branchLabel: node.branchLabel,
           isSelected: node.id === selectedNodeId,
+          isCompareTarget: node.id === compareNodeId,
           isDimmed: !isVisible,
+          attachmentCount: node.attachments.length,
+          onSelect: selectNode,
+          onBranch: branchFromNode,
+          onCycleStatus: cycleNodeStatus,
+          onSetCompare: (nodeId) => setCompareNode(nodeId === compareNodeId ? null : nodeId),
+          onRename: updateNodeTitle,
         },
       }
     })
@@ -95,7 +111,7 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
       })
 
     return { nodes: nextNodes, edges: nextEdges }
-  }, [document, selectedNodeId, selectedPathSet, visibleIdSet])
+  }, [compareNodeId, cycleNodeStatus, document, layout, branchFromNode, selectNode, selectedNodeId, selectedPathSet, setCompareNode, updateNodeTitle, visibleIdSet])
 
   if (!document.rootId) {
     return (
@@ -123,10 +139,8 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
         fitView
         nodesDraggable={false}
         onNodeClick={(_, node) => selectNode(node.id)}
-        defaultEdgeOptions={{
-          type: 'smoothstep',
-        }}
-        proOptions={{ hideAttribution: true }}
+        defaultEdgeOptions={defaultEdgeOptions}
+        proOptions={proOptions}
       >
         <Background color="#e5d8c4" gap={24} size={1.2} />
         <MiniMap
