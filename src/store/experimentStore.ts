@@ -11,6 +11,7 @@ import {
   getNodeById,
   normalizeDocument,
   updateExperimentNode,
+  updateExperimentNodeManualPosition,
 } from '../lib/graph'
 import {
   defaultExperimentDraft,
@@ -43,6 +44,7 @@ type ExperimentStoreActions = {
   saveSelectedNode: () => void
   cycleNodeStatus: (nodeId: ExperimentNodeId) => void
   updateNodeTitle: (nodeId: ExperimentNodeId, title: string) => void
+  setNodeManualPosition: (nodeId: ExperimentNodeId, position: { x: number; y: number }) => void
   deleteSelectedNode: () => void
   setSearchQuery: (query: string) => void
   toggleStatusFilter: (status: ExperimentStatus) => void
@@ -52,7 +54,7 @@ type ExperimentStoreActions = {
 
 type ExperimentStore = ExperimentStoreState & ExperimentStoreActions
 
-const persistVersion = 1
+const persistVersion = 2
 
 const seedDocument = (): ExperimentDocument => {
   const initial = createInitialDocument()
@@ -263,6 +265,13 @@ export const useExperimentStore = create<ExperimentStore>()(
                 ? getDraftFromNode(getNodeById(nextDocument, nodeId))
                 : currentState.detailDraft,
           }))
+        },
+
+        setNodeManualPosition: (nodeId, position) => {
+          const state = get()
+          const nextDocument = updateExperimentNodeManualPosition(state.document, nodeId, position)
+
+          set({ document: nextDocument })
         },
 
         deleteSelectedNode: () => {

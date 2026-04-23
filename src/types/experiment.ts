@@ -16,6 +16,11 @@ export type ExperimentAttachment = {
   createdAt: string
 }
 
+export type ExperimentManualPosition = {
+  x: number
+  y: number
+}
+
 export type ExperimentNode = {
   id: ExperimentNodeId
   parentId: ExperimentNodeId | null
@@ -30,6 +35,7 @@ export type ExperimentNode = {
   notes: string
   branchLabel: string
   attachments: ExperimentAttachment[]
+  manualPosition?: ExperimentManualPosition
   createdAt: string
   updatedAt: string
 }
@@ -49,12 +55,12 @@ export type ExperimentDraft = Pick<
 >
 
 export type ExperimentDocument = {
-  version: 1
+  version: 2
   rootId: ExperimentNodeId | null
   nodesById: Record<ExperimentNodeId, ExperimentNode>
 }
 
-export const documentVersion = 1 as const
+export const documentVersion = 2 as const
 
 export const defaultExperimentDraft = (): ExperimentDraft => ({
   title: '',

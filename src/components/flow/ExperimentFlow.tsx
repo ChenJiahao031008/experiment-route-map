@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import ReactFlow, {
   Background,
   Controls,
@@ -6,7 +6,11 @@ import ReactFlow, {
   MiniMap,
   type Edge,
   type Node,
+  type NodeChange,
+  type NodeDragHandler,
+  type OnNodesChange,
   type NodeTypes,
+  type XYPosition,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 
@@ -34,6 +38,9 @@ type ExperimentFlowProps = {
 }
 
 export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
+  const [dragPositions, setDragPositions] = useState<Record<string, XYPosition>>({})
+  const [activeDragNodeId, setActiveDragNodeId] = useState<string | null>(null)
+
   const document = useExperimentStore((state) => state.document)
   const selectedNodeId = useExperimentStore((state) => state.selectedNodeId)
   const compareNodeId = useExperimentStore((state) => state.compareNodeId)
@@ -44,6 +51,7 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
   const cycleNodeStatus = useExperimentStore((state) => state.cycleNodeStatus)
   const setCompareNode = useExperimentStore((state) => state.setCompareNode)
   const updateNodeTitle = useExperimentStore((state) => state.updateNodeTitle)
+  const setNodeManualPosition = useExperimentStore((state) => state.setNodeManualPosition)
 
   const visibleNodeIds = useMemo(
     () => getVisibleNodeIds(document, searchQuery, statusFilters),
@@ -58,18 +66,74 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
   const visibleIdSet = useMemo(() => new Set(visibleNodeIds), [visibleNodeIds])
   const selectedPathSet = useMemo(() => new Set(selectedPath), [selectedPath])
 
+  const handleNodesChange = useMemo<OnNodesChange>(
+    () => (changes: NodeChange[]) => {
+      setDragPositions((current) => {
+        let nextPositions = current
+
+        for (const change of changes) {
+          if (change.type !== 'position' || !change.position || !change.dragging) {
+            continue
+          }
+
+          if (nextPositions === current) {
+            nextPositions = { ...current }
+          }
+
+          nextPositions[change.id] = change.position as XYPosition
+        }
+
+        return nextPositions
+      })
+    },
+    [],
+  )
+
+  const handleNodeDragStart = useMemo<NodeDragHandler>(
+    () => (_, node) => {
+      setActiveDragNodeId(node.id)
+      setDragPositions((current) => ({ ...current, [node.id]: node.position as XYPosition }))
+      selectNode(node.id)
+    },
+    [selectNode],
+  )
+
+  const handleNodeDragStop = useMemo<NodeDragHandler>(
+    () => (_, node) => {
+      const { x, y } = node.position as XYPosition
+      setNodeManualPosition(node.id, { x, y })
+      setActiveDragNodeId((current) => (current === node.id ? null : current))
+      setDragPositions((current) => {
+        if (!(node.id in current)) {
+          return current
+        }
+
+        const nextPositions = { ...current }
+        delete nextPositions[node.id]
+        return nextPositions
+      })
+    },
+    [setNodeManualPosition],
+  )
+
   const { nodes, edges } = useMemo(() => {
     const nextNodes: Node<ExperimentNodeData>[] = Object.values(document.nodesById).map((node) => {
-      const position = layout[node.id] ?? { x: 0, y: 0 }
+      const autoPosition = layout[node.id] ?? { x: 0, y: 0 }
       const isVisible = visibleIdSet.has(node.id)
+      const isSelected = node.id === selectedNodeId
+      const isCompareTarget = node.id === compareNodeId
+      const isDragging = node.id === activeDragNodeId
+      const position = dragPositions[node.id] ?? node.manualPosition ?? {
+        x: autoPosition.x * xGap,
+        y: autoPosition.y * yGap,
+      }
 
       return {
         id: node.id,
         type: 'experiment',
-        position: {
-          x: position.x * xGap,
-          y: position.y * yGap,
-        },
+        position,
+        dragHandle: '.drag-handle__custom',
+        zIndex: isDragging ? 40 : isSelected ? 30 : isCompareTarget ? 20 : 10,
         data: {
           nodeId: node.id,
           title: node.title,
@@ -78,8 +142,9 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
           status: node.status,
           timestamp: node.timestamp,
           branchLabel: node.branchLabel,
-          isSelected: node.id === selectedNodeId,
-          isCompareTarget: node.id === compareNodeId,
+          isSelected,
+          isCompareTarget,
+          isDragging,
           isDimmed: !isVisible,
           attachmentCount: node.attachments.length,
           onSelect: selectNode,
@@ -90,6 +155,7 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
         },
       }
     })
+
 
     const nextEdges: Edge[] = Object.values(document.nodesById)
       .filter((node) => node.parentId)
@@ -111,7 +177,7 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
       })
 
     return { nodes: nextNodes, edges: nextEdges }
-  }, [compareNodeId, cycleNodeStatus, document, layout, branchFromNode, selectNode, selectedNodeId, selectedPathSet, setCompareNode, updateNodeTitle, visibleIdSet])
+  }, [activeDragNodeId, compareNodeId, cycleNodeStatus, document, dragPositions, layout, branchFromNode, selectNode, selectedNodeId, selectedPathSet, setCompareNode, updateNodeTitle, visibleIdSet])
 
   if (!document.rootId) {
     return (
@@ -136,9 +202,12 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
+        nodesDraggable
         fitView
-        nodesDraggable={false}
         onNodeClick={(_, node) => selectNode(node.id)}
+        onNodesChange={handleNodesChange}
+        onNodeDragStart={handleNodeDragStart}
+        onNodeDragStop={handleNodeDragStop}
         defaultEdgeOptions={defaultEdgeOptions}
         proOptions={proOptions}
       >

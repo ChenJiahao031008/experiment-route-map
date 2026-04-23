@@ -4,6 +4,7 @@ import {
   type ExperimentAttachment,
   type ExperimentDocument,
   type ExperimentDraft,
+  type ExperimentManualPosition,
   type ExperimentNode,
   type ExperimentNodeId,
   type ExperimentStatus,
@@ -36,6 +37,25 @@ const normalizeAttachment = (attachment: Partial<ExperimentAttachment>): Experim
 
 const normalizeAttachments = (attachments: Partial<ExperimentAttachment>[] | undefined) =>
   (attachments ?? []).map(normalizeAttachment)
+
+const normalizeManualPosition = (
+  position: Partial<ExperimentManualPosition> | undefined,
+): ExperimentManualPosition | undefined => {
+  if (!position) {
+    return undefined
+  }
+
+  const { x, y } = position
+  if (typeof x !== 'number' || typeof y !== 'number') {
+    return undefined
+  }
+
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    return undefined
+  }
+
+  return { x, y }
+}
 
 export const normalizeDocument = (raw: unknown): ExperimentDocument | null => {
   if (!raw || typeof raw !== 'object') {
@@ -73,6 +93,7 @@ export const normalizeDocument = (raw: unknown): ExperimentDocument | null => {
         notes: baseDraft.notes,
         branchLabel: baseDraft.branchLabel,
         attachments: normalizeAttachments(node.attachments),
+        manualPosition: normalizeManualPosition(node.manualPosition),
         createdAt: node.createdAt ?? nowIso(),
         updatedAt: node.updatedAt ?? node.createdAt ?? nowIso(),
       }
@@ -112,6 +133,7 @@ export const createExperimentNode = (
     notes: baseDraft.notes,
     branchLabel: baseDraft.branchLabel,
     attachments: normalizeAttachments(baseDraft.attachments),
+    manualPosition: undefined,
     createdAt,
     updatedAt: createdAt,
   }
@@ -233,6 +255,29 @@ export const updateExperimentNode = (
     nodesById: {
       ...document.nodesById,
       [nodeId]: nextNode,
+    },
+  }
+}
+
+export const updateExperimentNodeManualPosition = (
+  document: ExperimentDocument,
+  nodeId: ExperimentNodeId,
+  manualPosition: ExperimentManualPosition,
+) => {
+  const node = document.nodesById[nodeId]
+
+  if (!node) {
+    throw new Error(`Experiment ${nodeId} not found`)
+  }
+
+  return {
+    ...document,
+    nodesById: {
+      ...document.nodesById,
+      [nodeId]: {
+        ...node,
+        manualPosition: normalizeManualPosition(manualPosition),
+      },
     },
   }
 }

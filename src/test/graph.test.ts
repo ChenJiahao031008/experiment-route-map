@@ -10,6 +10,7 @@ import {
   getVisibleNodeIds,
   normalizeDocument,
   serializeExperimentDocument,
+  updateExperimentNodeManualPosition,
 } from '../lib/graph'
 
 describe('graph helpers', () => {
@@ -110,8 +111,50 @@ describe('graph helpers', () => {
       },
     })
 
-    expect(normalized?.version).toBe(1)
+    expect(normalized?.version).toBe(2)
     expect(normalized?.nodesById.root?.attachments).toEqual([])
+    expect(normalized?.nodesById.root?.manualPosition).toBeUndefined()
+  })
+
+  it('preserves valid manual positions and ignores invalid ones during normalization', () => {
+    const normalized = normalizeDocument({
+      rootId: 'root',
+      nodesById: {
+        root: {
+          id: 'root',
+          parentId: null,
+          childIds: ['child'],
+          title: 'Root',
+          changeSummary: '',
+          result: '',
+          conclusion: '',
+          status: 'running',
+          timestamp: '2026-04-23T09:00',
+          tags: [],
+          notes: '',
+          branchLabel: '',
+          manualPosition: { x: 120, y: 240 },
+        },
+        child: {
+          id: 'child',
+          parentId: 'root',
+          childIds: [],
+          title: 'Child',
+          changeSummary: '',
+          result: '',
+          conclusion: '',
+          status: 'running',
+          timestamp: '2026-04-23T09:10',
+          tags: [],
+          notes: '',
+          branchLabel: '',
+          manualPosition: { x: 'bad', y: 20 },
+        },
+      },
+    })
+
+    expect(normalized?.nodesById.root?.manualPosition).toEqual({ x: 120, y: 240 })
+    expect(normalized?.nodesById.child?.manualPosition).toBeUndefined()
   })
 
   it('computes subtree-aware layout without overlapping sibling branches', () => {
@@ -139,5 +182,20 @@ describe('graph helpers', () => {
     expect(layout[childA]?.x).toBe(1)
     expect(layout[childB]?.x).toBe(1)
     expect(layout[childA]?.y).not.toBe(layout[childB]?.y)
+  })
+
+  it('updates manual positions without affecting serialization', () => {
+    const initial = createInitialDocument()
+    const { document, createdNodeId } = createRootExperiment(initial, {
+      title: 'Root',
+    })
+
+    const nextDocument = updateExperimentNodeManualPosition(document, createdNodeId, {
+      x: 420,
+      y: 260,
+    })
+
+    expect(nextDocument.nodesById[createdNodeId]?.manualPosition).toEqual({ x: 420, y: 260 })
+    expect(() => JSON.parse(serializeExperimentDocument(nextDocument))).not.toThrow()
   })
 })
