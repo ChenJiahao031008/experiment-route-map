@@ -1,4 +1,16 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import {
+  MDXEditor,
+  codeBlockPlugin,
+  headingsPlugin,
+  linkPlugin,
+  listsPlugin,
+  markdownShortcutPlugin,
+  quotePlugin,
+  thematicBreakPlugin,
+  type MDXEditorMethods,
+} from '@mdxeditor/editor'
+import '@mdxeditor/editor/style.css'
 import ReactMarkdown from 'react-markdown'
 
 import {
@@ -44,6 +56,28 @@ const maxAttachmentSize = 220 * 1024
 const maxAttachmentCount = 4
 
 type MarkdownFieldKey = (typeof markdownFields)[number]['key']
+type MarkdownMode = 'wysiwyg' | 'rendered' | 'source'
+
+const markdownModeOptions: Array<{
+  mode: MarkdownMode
+  label: string
+}> = [
+  { mode: 'wysiwyg', label: '实时渲染' },
+  { mode: 'rendered', label: '渲染模式' },
+  { mode: 'source', label: '源码模式' },
+]
+
+const defaultMarkdownMode: MarkdownMode = 'wysiwyg'
+
+const markdownEditorPlugins = [
+  headingsPlugin({ allowedHeadingLevels: [1, 2, 3, 4] }),
+  listsPlugin(),
+  quotePlugin(),
+  thematicBreakPlugin(),
+  linkPlugin(),
+  codeBlockPlugin({ defaultCodeBlockLanguage: 'text' }),
+  markdownShortcutPlugin(),
+]
 
 export function ExperimentForm({
   node,
@@ -59,7 +93,7 @@ export function ExperimentForm({
   deleteImpactCount,
 }: ExperimentFormProps) {
   const [tagInput, setTagInput] = useState('')
-  const [previewField, setPreviewField] = useState<MarkdownFieldKey | null>(null)
+  const [markdownModes, setMarkdownModes] = useState<Partial<Record<MarkdownFieldKey, MarkdownMode>>>({})
   const [attachmentError, setAttachmentError] = useState('')
 
   const parentLabel = useMemo(() => (node.parentId ? node.parentId : '根实验'), [node.parentId])
@@ -83,6 +117,13 @@ export function ExperimentForm({
     onChange({
       attachments: draft.attachments.filter((attachment) => attachment.id !== attachmentId),
     })
+  }
+
+  const setMarkdownFieldMode = (field: MarkdownFieldKey, mode: MarkdownMode) => {
+    setMarkdownModes((current) => ({
+      ...current,
+      [field]: mode,
+    }))
   }
 
   const addAttachment = async (file: File | null) => {
@@ -210,31 +251,43 @@ export function ExperimentForm({
 
         {markdownFields.map(({ key, label, hint, minHeightClassName }) => {
           const value = draft[key]
-          const isPreview = previewField === key
+          const markdownMode = markdownModes[key] ?? defaultMarkdownMode
 
           return (
             <Field key={key} label={label} htmlFor={key} hint={hint}>
               <div className="mb-2 flex justify-end">
-                <button
-                  type="button"
-                  className="node-chip"
-                  onClick={() => setPreviewField((current) => (current === key ? null : key))}
-                >
-                  {isPreview ? '返回编辑' : 'Markdown 预览'}
-                </button>
+                <div className="markdown-mode-tabs">
+                  {markdownModeOptions.map((option) => (
+                    <button
+                      key={option.mode}
+                      type="button"
+                      className={option.mode === markdownMode ? 'is-active' : undefined}
+                      onClick={() => setMarkdownFieldMode(key, option.mode)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              {isPreview ? (
-                <div className={`markdown-note ${minHeightClassName} rounded-2xl border border-pencil bg-note px-4 py-3`}>
-                  {value.trim() ? <ReactMarkdown>{value}</ReactMarkdown> : '暂无内容可预览。'}
-                </div>
-              ) : (
+              {markdownMode === 'wysiwyg' ? (
+                <MarkdownRichEditor
+                  value={value}
+                  minHeightClassName={minHeightClassName}
+                  placeholder="输入 Markdown，内容会像 Typora 一样实时渲染。"
+                  onChange={(nextValue) => onChange({ [key]: nextValue } as Partial<ExperimentDraft>)}
+                />
+              ) : markdownMode === 'source' ? (
                 <textarea
                   id={key}
                   value={value}
                   onChange={(event) => onChange({ [key]: event.target.value } as Partial<ExperimentDraft>)}
                   className={`note-input ${minHeightClassName} resize-y`}
                 />
+              ) : (
+                <div className={`markdown-note ${minHeightClassName} rounded-2xl border border-pencil bg-note px-4 py-3`}>
+                  {value.trim() ? <ReactMarkdown>{value}</ReactMarkdown> : '暂无内容可预览。'}
+                </div>
               )}
             </Field>
           )
@@ -336,6 +389,42 @@ export function ExperimentForm({
         </div>
       </div>
     </div>
+  )
+}
+
+type MarkdownRichEditorProps = {
+  value: string
+  minHeightClassName: string
+  placeholder: string
+  onChange: (value: string) => void
+}
+
+function MarkdownRichEditor({ value, minHeightClassName, placeholder, onChange }: MarkdownRichEditorProps) {
+  const editorRef = useRef<MDXEditorMethods>(null)
+  const lastEditorValueRef = useRef(value)
+
+  useEffect(() => {
+    if (value !== lastEditorValueRef.current) {
+      editorRef.current?.setMarkdown(value)
+      lastEditorValueRef.current = value
+    }
+  }, [value])
+
+  return (
+    <MDXEditor
+      ref={editorRef}
+      markdown={value}
+      plugins={markdownEditorPlugins}
+      placeholder={placeholder}
+      className="markdown-rich-editor"
+      contentEditableClassName={`markdown-rich-editable ${minHeightClassName}`}
+      onChange={(nextValue, initialMarkdownNormalize) => {
+        lastEditorValueRef.current = nextValue
+        if (!initialMarkdownNormalize) {
+          onChange(nextValue)
+        }
+      }}
+    />
   )
 }
 

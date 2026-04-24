@@ -20,6 +20,7 @@
     "preview": "vite preview --config config/vite.config.ts"
   },
   "dependencies": {
+    "@mdxeditor/editor": "^3.55.0",
     "clsx": "^2.1.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

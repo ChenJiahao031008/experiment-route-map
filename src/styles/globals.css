@@ -86,6 +86,18 @@ select {
   @apply rounded-full border border-pencil bg-white/80 px-2.5 py-0.5 text-[11px] text-ink transition hover:border-ink/35 hover:bg-white;
 }
 
+.markdown-mode-tabs {
+  @apply inline-flex overflow-hidden rounded-full border border-pencil bg-white/80 p-0.5;
+}
+
+.markdown-mode-tabs button {
+  @apply rounded-full px-2.5 py-0.5 text-[11px] text-ink/60 transition hover:bg-note hover:text-ink;
+}
+
+.markdown-mode-tabs button.is-active {
+  @apply bg-ink text-paper;
+}
+
 .markdown-note {
   @apply text-sm leading-7 text-ink/80;
 }
@@ -104,6 +116,62 @@ select {
 
 .markdown-note code {
   @apply rounded bg-paper-deep px-1.5 py-0.5 text-[0.92em];
+}
+
+.markdown-rich-editor {
+  @apply overflow-hidden rounded-2xl border border-pencil bg-note text-sm text-ink;
+}
+
+.markdown-rich-editable {
+  @apply px-4 py-3 text-sm leading-7 text-ink outline-none;
+}
+
+.markdown-rich-editable p {
+  @apply my-2;
+}
+
+.markdown-rich-editable h1,
+.markdown-rich-editable h2,
+.markdown-rich-editable h3,
+.markdown-rich-editable h4 {
+  @apply my-3 font-semibold leading-7 text-ink;
+}
+
+.markdown-rich-editable h1 {
+  @apply text-xl;
+}
+
+.markdown-rich-editable h2 {
+  @apply text-lg;
+}
+
+.markdown-rich-editable h3,
+.markdown-rich-editable h4 {
+  @apply text-base;
+}
+
+.markdown-rich-editable ul {
+  @apply my-2 list-disc pl-5;
+}
+
+.markdown-rich-editable ol {
+  @apply my-2 list-decimal pl-5;
+}
+
+.markdown-rich-editable blockquote {
+  @apply my-2 border-l-4 border-pencil bg-white/45 px-3 py-1 text-ink/70;
+}
+
+.markdown-rich-editable code {
+  @apply rounded bg-paper-deep px-1.5 py-0.5 text-[0.92em];
+}
+
+.markdown-rich-editable pre {
+  @apply my-3 overflow-auto rounded-xl bg-paper-deep px-3 py-2 text-xs leading-5;
+}
+
+.markdown-rich-editor .mdxeditor {
+  @apply bg-transparent;
 }
 
 .markdown-card-summary {
