@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Local automation artifacts
+.codex
+.playwright-mcp/
+drag-*.png
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

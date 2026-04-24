@@ -1,73 +1,72 @@
-# React + TypeScript + Vite
+# 实验路线演化图
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+一个用于记录实验分支、对比结论和演化路线的可视化手账工具。应用基于 React Flow 展示实验树，右侧详情面板用于维护每个实验节点的改动内容、结果、结论、标签和附件。
 
-Currently, two official plugins are available:
+## 功能
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- 实验树可视化：支持从任意节点向上下左右方向创建新分支。
+- 节点编辑：记录标题、状态、时间、改动内容、实验结果、结论、备注和标签。
+- 拖拽布局：节点位置会持久化保存，刷新后保持当前布局。
+- 搜索与筛选：按标题、改动、结论、标签或状态弱化无关节点，保留上下文。
+- 对比模式：选择一个节点作为对比目标，在详情面板查看差异。
+- 附件记录：可为实验节点添加图片附件。
+- JSON 导入导出：导出完整实验文档，也可导入 JSON 覆盖当前实验树。
 
-## React Compiler
+## 技术栈
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- React 19
+- TypeScript
+- Vite
+- Tailwind CSS
+- React Flow
+- Zustand
+- Vitest
 
-## Expanding the ESLint configuration
+## 本地开发
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+安装依赖：
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+启动开发服务：
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run dev
 ```
+
+默认访问地址：
+
+```text
+http://127.0.0.1:5173/
+```
+
+## 常用命令
+
+```bash
+npm run lint
+npm run test
+npm run build
+npm run preview
+```
+
+## 目录结构
+
+```text
+src/
+  components/
+    editor/       实验详情表单
+    flow/         实验树画布与节点卡片
+    layout/       页面布局、工具栏和详情面板
+  lib/            图数据处理与导出工具
+  store/          Zustand 状态管理
+  styles/         全局样式和主题变量
+  types/          实验文档类型定义
+tests/            单元测试
+public/           静态图标资源
+```
+
+## 数据说明
+
+实验数据会通过 Zustand persist 保存在浏览器本地存储中。点击“导出 JSON”可保存当前实验树，点击“导入 JSON”会解析文件并在确认后替换当前实验树。

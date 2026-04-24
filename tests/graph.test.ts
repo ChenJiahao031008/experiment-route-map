@@ -11,7 +11,7 @@ import {
   normalizeDocument,
   serializeExperimentDocument,
   updateExperimentNodeManualPosition,
-} from '../lib/graph'
+} from '../src/lib/graph'
 
 describe('graph helpers', () => {
   it('creates a root experiment', () => {
