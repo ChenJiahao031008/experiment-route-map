@@ -63,6 +63,7 @@ src/
   store/          Zustand 状态管理
   styles/         全局样式和主题变量
   types/          实验文档类型定义
+config/           Vite、Vitest、ESLint 和 TypeScript 配置
 tests/            单元测试
 public/           静态图标资源
 ```
