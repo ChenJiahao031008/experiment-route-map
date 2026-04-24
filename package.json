@@ -1,7 +1,7 @@
 {
   "name": "experiment-route-map",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "实验路线演化图桌面应用",
   "main": "electron/main.cjs",
   "author": "ChenJiahao031008",
