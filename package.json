@@ -1,7 +1,7 @@
 {
   "name": "experiment-route-map",
   "private": true,
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "实验路线演化图桌面应用",
   "main": "electron/main.cjs",
   "author": "ChenJiahao031008",
@@ -14,7 +14,7 @@
   "scripts": {
     "dev": "vite --config config/vite.config.ts --host 127.0.0.1 --port 4173",
     "build": "tsc -b config/tsconfig.json && vite build --config config/vite.config.ts",
-    "dist:deb": "npm run build && electron-builder --linux deb --config config/electron-builder.cjs",
+    "dist:deb": "npm run build && electron-builder --linux deb --publish never --config config/electron-builder.cjs",
     "lint": "eslint . --config config/eslint.config.js",
     "test": "vitest run --config config/vitest.config.ts",
     "preview": "vite preview --config config/vite.config.ts"
