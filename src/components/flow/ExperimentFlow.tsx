@@ -19,9 +19,11 @@ import ReactFlow, {
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 
+import { getBranchEdgeHandles } from '../../lib/edgeHandles'
 import { computeTreeLayout, getNodePath, getVisibleNodeIds } from '../../lib/graph'
 import { useExperimentStore } from '../../store/experimentStore'
-import { ExperimentNodeCard, type BranchDirection, type ExperimentNodeData } from './ExperimentNodeCard'
+import type { BranchDirection } from '../../types/experiment'
+import { ExperimentNodeCard, type ExperimentNodeData } from './ExperimentNodeCard'
 
 const xGap = 300
 const yGap = 180
@@ -198,7 +200,7 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
 
   const handleBranchFromNode = useCallback(
     (nodeId: string, direction: BranchDirection = 'right') => {
-      branchFromNode(nodeId, getBranchPosition(nodeId, direction))
+      branchFromNode(nodeId, getBranchPosition(nodeId, direction), direction)
     },
     [branchFromNode, getBranchPosition],
   )
@@ -244,11 +246,17 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
       .filter((node) => node.parentId)
       .map((node) => {
         const isOnSelectedPath = selectedPathSet.has(node.id) && selectedPathSet.has(node.parentId ?? '')
+        const edgeHandles = getBranchEdgeHandles(
+          getNodeCanvasPosition(node.parentId!),
+          getNodeCanvasPosition(node.id),
+          node.branchDirection,
+        )
 
         return {
           id: `${node.parentId}-${node.id}`,
           source: node.parentId!,
           target: node.id,
+          ...edgeHandles,
           animated: isOnSelectedPath,
           markerEnd: { type: MarkerType.ArrowClosed },
           style: {
@@ -258,7 +266,7 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
           },
         }
       })
-  }, [document, selectedPathSet, visibleIdSet])
+  }, [document, getNodeCanvasPosition, selectedPathSet, visibleIdSet])
 
   const [nodes, setNodes] = useNodesState(documentNodes)
   const [edges, setEdges] = useEdgesState(documentEdges)

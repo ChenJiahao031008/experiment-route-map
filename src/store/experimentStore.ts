@@ -16,6 +16,7 @@ import {
 import {
   defaultExperimentDraft,
   type ExperimentAttachment,
+  type BranchDirection,
   type ExperimentDocument,
   type ExperimentDraft,
   type ExperimentManualPosition,
@@ -41,7 +42,7 @@ type ExperimentStoreActions = {
   resetDetailDraft: () => void
   createExperiment: () => void
   branchFromSelected: () => void
-  branchFromNode: (nodeId: ExperimentNodeId, manualPosition?: ExperimentManualPosition) => void
+  branchFromNode: (nodeId: ExperimentNodeId, manualPosition?: ExperimentManualPosition, branchDirection?: BranchDirection) => void
   importDocument: (document: ExperimentDocument) => void
   saveSelectedNode: () => void
   cycleNodeStatus: (nodeId: ExperimentNodeId) => void
@@ -203,13 +204,13 @@ export const useExperimentStore = create<ExperimentStore>()(
           get().branchFromNode(state.selectedNodeId)
         },
 
-        branchFromNode: (nodeId, manualPosition) => {
+        branchFromNode: (nodeId, manualPosition, branchDirection) => {
           const state = get()
           const { document: nextDocument, createdNodeId } = addChildExperiment(
             state.document,
             nodeId,
             buildBranchDraft(state.document, nodeId),
-            { manualPosition },
+            { manualPosition, branchDirection },
           )
 
           set({

@@ -4,6 +4,8 @@ export type ExperimentStatus = (typeof experimentStatuses)[number]
 
 export type ExperimentNodeId = string
 
+export type BranchDirection = 'left' | 'right' | 'top' | 'bottom'
+
 export type AttachmentKind = 'image'
 
 export type ExperimentAttachment = {
@@ -35,6 +37,7 @@ export type ExperimentNode = {
   notes: string
   branchLabel: string
   attachments: ExperimentAttachment[]
+  branchDirection?: BranchDirection
   manualPosition?: ExperimentManualPosition
   createdAt: string
   updatedAt: string

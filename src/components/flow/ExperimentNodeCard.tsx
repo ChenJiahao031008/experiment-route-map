@@ -1,10 +1,9 @@
 import { memo, type FocusEvent, type KeyboardEvent, type MouseEvent, useState } from 'react'
 import clsx from 'clsx'
+import ReactMarkdown from 'react-markdown'
 import { Handle, Position, type NodeProps } from 'reactflow'
 
-import { statusLabels, type ExperimentStatus } from '../../types/experiment'
-
-type BranchDirection = 'left' | 'right' | 'top' | 'bottom'
+import { statusLabels, type BranchDirection, type ExperimentStatus } from '../../types/experiment'
 
 type ExperimentNodeData = {
   nodeId: string
@@ -31,6 +30,20 @@ const statusClasses: Record<ExperimentStatus, string> = {
   failed: 'bg-failed/75 text-failed-ink border-failed/70',
   running: 'bg-running/85 text-running-ink border-running/75',
   archived: 'bg-archived/90 text-archived-ink border-archived/85',
+}
+
+function CardMarkdownSummary({ value, fallback }: { value: string; fallback: string }) {
+  const content = value.trim()
+
+  if (!content) {
+    return <p className="mt-1 line-clamp-2 min-h-[2.5rem]">{fallback}</p>
+  }
+
+  return (
+    <div className="markdown-card-summary">
+      <ReactMarkdown>{content}</ReactMarkdown>
+    </div>
+  )
 }
 
 type ExperimentNodeCardBodyProps = {
@@ -186,7 +199,7 @@ const ExperimentNodeCardBody = memo(function ExperimentNodeCardBody({
       <div className="space-y-2 text-xs leading-5 text-ink/80">
         <div>
           <p className="text-[10px] uppercase tracking-[0.16em] text-ink/45">改动内容</p>
-          <p className="mt-1 line-clamp-2 min-h-[2.5rem]">{changeSummary || '尚未记录本次改动。'}</p>
+          <CardMarkdownSummary value={changeSummary} fallback="尚未记录本次改动。" />
         </div>
 
         <div>
@@ -229,6 +242,18 @@ const branchDirectionButtons: Array<{
     className: 'left-0 top-1/2 -translate-x-1/2 -translate-y-1/2',
   },
 ]
+
+const branchHandlePositions: Array<{
+  direction: BranchDirection
+  position: Position
+}> = [
+  { direction: 'top', position: Position.Top },
+  { direction: 'right', position: Position.Right },
+  { direction: 'bottom', position: Position.Bottom },
+  { direction: 'left', position: Position.Left },
+]
+
+const handleClassName = '!h-3 !w-3 !border-2 !border-paper !bg-ink'
 
 function ExperimentNodeCardComponent({ data, selected }: NodeProps<ExperimentNodeData>) {
   const [isEditingTitle, setIsEditingTitle] = useState(false)
@@ -276,8 +301,15 @@ function ExperimentNodeCardComponent({ data, selected }: NodeProps<ExperimentNod
       className={cardClassName}
       onDoubleClick={startEditingTitle}
     >
-      <Handle type="target" position={Position.Left} className="!h-3 !w-3 !border-2 !border-paper !bg-ink" />
-      <Handle type="target" position={Position.Top} className="!h-3 !w-3 !border-2 !border-paper !bg-ink" />
+      {branchHandlePositions.map((handle) => (
+        <Handle
+          key={`target-${handle.direction}`}
+          id={`target-${handle.direction}`}
+          type="target"
+          position={handle.position}
+          className={handleClassName}
+        />
+      ))}
 
       <ExperimentNodeCardBody
         branchLabel={data.branchLabel}
@@ -301,8 +333,15 @@ function ExperimentNodeCardComponent({ data, selected }: NodeProps<ExperimentNod
         isDragging={data.isDragging}
       />
 
-      <Handle type="source" position={Position.Right} className="!h-3 !w-3 !border-2 !border-paper !bg-ink" />
-      <Handle type="source" position={Position.Bottom} className="!h-3 !w-3 !border-2 !border-paper !bg-ink" />
+      {branchHandlePositions.map((handle) => (
+        <Handle
+          key={`source-${handle.direction}`}
+          id={`source-${handle.direction}`}
+          type="source"
+          position={handle.position}
+          className={handleClassName}
+        />
+      ))}
 
       <div className="pointer-events-none absolute inset-0 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
         {branchDirectionButtons.map((button) => (

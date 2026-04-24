@@ -2,6 +2,7 @@ import {
   defaultExperimentDraft,
   documentVersion,
   experimentStatuses,
+  type BranchDirection,
   type ExperimentAttachment,
   type ExperimentDocument,
   type ExperimentDraft,
@@ -41,6 +42,11 @@ const normalizeAttachments = (attachments: Partial<ExperimentAttachment>[] | und
 
 const normalizeStatus = (status: unknown): ExperimentStatus =>
   experimentStatuses.includes(status as ExperimentStatus) ? (status as ExperimentStatus) : 'running'
+
+const branchDirections = ['left', 'right', 'top', 'bottom'] as const
+
+const normalizeBranchDirection = (direction: unknown): BranchDirection | undefined =>
+  branchDirections.includes(direction as BranchDirection) ? (direction as BranchDirection) : undefined
 
 const normalizeManualPosition = (
   position: Partial<ExperimentManualPosition> | undefined,
@@ -99,6 +105,7 @@ export const normalizeDocument = (raw: unknown): ExperimentDocument | null => {
         notes: baseDraft.notes,
         branchLabel: baseDraft.branchLabel,
         attachments: normalizeAttachments(node.attachments),
+        branchDirection: normalizeBranchDirection(node.branchDirection),
         manualPosition: normalizeManualPosition(node.manualPosition),
         createdAt: node.createdAt ?? nowIso(),
         updatedAt: node.updatedAt ?? node.createdAt ?? nowIso(),
@@ -142,6 +149,7 @@ export const createExperimentNode = (
     notes: baseDraft.notes,
     branchLabel: baseDraft.branchLabel,
     attachments: normalizeAttachments(baseDraft.attachments),
+    branchDirection: undefined,
     manualPosition: undefined,
     createdAt,
     updatedAt: createdAt,
@@ -183,7 +191,7 @@ export const addChildExperiment = (
   document: ExperimentDocument,
   parentId: ExperimentNodeId,
   draft: Partial<ExperimentDraft> = {},
-  options: { manualPosition?: ExperimentManualPosition } = {},
+  options: { manualPosition?: ExperimentManualPosition; branchDirection?: BranchDirection } = {},
 ) => {
   const parentNode = document.nodesById[parentId]
 
@@ -193,6 +201,7 @@ export const addChildExperiment = (
 
   const childNode: ExperimentNode = {
     ...createExperimentNode(draft, parentId),
+    branchDirection: normalizeBranchDirection(options.branchDirection),
     manualPosition: normalizeManualPosition(options.manualPosition),
   }
 

@@ -24,9 +24,20 @@ type ExperimentFormProps = {
 }
 
 const markdownFields = [
-  { key: 'result', label: '实验结果' },
-  { key: 'conclusion', label: '实验结论' },
-  { key: 'notes', label: '补充备注' },
+  {
+    key: 'changeSummary',
+    label: '改动内容',
+    hint: '回答“这次改了什么”，这是节点卡片中最优先展示的信息。',
+    minHeightClassName: 'min-h-32',
+  },
+  { key: 'result', label: '实验结果', hint: undefined, minHeightClassName: 'min-h-28' },
+  {
+    key: 'conclusion',
+    label: '实验结论',
+    hint: '回答“这次实验说明了什么”，建议写成一句明确判断。',
+    minHeightClassName: 'min-h-28',
+  },
+  { key: 'notes', label: '补充备注', hint: undefined, minHeightClassName: 'min-h-28' },
 ] as const
 
 const maxAttachmentSize = 220 * 1024
@@ -197,20 +208,9 @@ export function ExperimentForm({
           </select>
         </Field>
 
-        <Field label="改动内容" htmlFor="changeSummary" hint="回答“这次改了什么”，这是节点卡片中最优先展示的信息。">
-          <textarea
-            id="changeSummary"
-            value={draft.changeSummary}
-            onChange={(event) => onChange({ changeSummary: event.target.value })}
-            className="note-input min-h-32 resize-y"
-          />
-        </Field>
-
-        {markdownFields.map(({ key, label }) => {
+        {markdownFields.map(({ key, label, hint, minHeightClassName }) => {
           const value = draft[key]
           const isPreview = previewField === key
-          const hint =
-            key === 'conclusion' ? '回答“这次实验说明了什么”，建议写成一句明确判断。' : undefined
 
           return (
             <Field key={key} label={label} htmlFor={key} hint={hint}>
@@ -225,7 +225,7 @@ export function ExperimentForm({
               </div>
 
               {isPreview ? (
-                <div className="markdown-note min-h-28 rounded-2xl border border-pencil bg-note px-4 py-3">
+                <div className={`markdown-note ${minHeightClassName} rounded-2xl border border-pencil bg-note px-4 py-3`}>
                   {value.trim() ? <ReactMarkdown>{value}</ReactMarkdown> : '暂无内容可预览。'}
                 </div>
               ) : (
@@ -233,7 +233,7 @@ export function ExperimentForm({
                   id={key}
                   value={value}
                   onChange={(event) => onChange({ [key]: event.target.value } as Partial<ExperimentDraft>)}
-                  className="note-input min-h-28 resize-y"
+                  className={`note-input ${minHeightClassName} resize-y`}
                 />
               )}
             </Field>
@@ -375,7 +375,7 @@ function CompareCard({ title, node }: CompareCardProps) {
         <CompareItem label="状态" value={statusLabels[node.status]} />
         <CompareItem label="时间" value={node.timestamp} />
         <CompareItem label="标签" value={node.tags.length ? node.tags.join(', ') : '暂无'} />
-        <CompareItem label="改动内容" value={node.changeSummary || '暂无'} />
+        <CompareItem label="改动内容" value={node.changeSummary || '暂无'} markdown />
         <CompareItem label="实验结果" value={node.result || '暂无'} markdown />
         <CompareItem label="实验结论" value={node.conclusion || '暂无'} markdown />
         <CompareItem label="补充备注" value={node.notes || '暂无'} markdown />

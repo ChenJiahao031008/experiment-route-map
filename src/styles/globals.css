@@ -106,6 +106,48 @@ select {
   @apply rounded bg-paper-deep px-1.5 py-0.5 text-[0.92em];
 }
 
+.markdown-card-summary {
+  @apply mt-1 max-h-[2.5rem] min-h-[2.5rem] overflow-hidden text-xs leading-5 text-ink/80;
+}
+
+.markdown-card-summary p,
+.markdown-card-summary ul,
+.markdown-card-summary ol,
+.markdown-card-summary blockquote,
+.markdown-card-summary pre,
+.markdown-card-summary h1,
+.markdown-card-summary h2,
+.markdown-card-summary h3,
+.markdown-card-summary h4,
+.markdown-card-summary h5,
+.markdown-card-summary h6 {
+  @apply m-0;
+}
+
+.markdown-card-summary ul {
+  @apply list-disc pl-4;
+}
+
+.markdown-card-summary ol {
+  @apply list-decimal pl-4;
+}
+
+.markdown-card-summary strong {
+  @apply font-semibold;
+}
+
+.markdown-card-summary em {
+  @apply italic;
+}
+
+.markdown-card-summary code {
+  @apply rounded bg-paper-deep px-1 py-0.5 text-[0.92em];
+}
+
+.markdown-card-summary a {
+  @apply text-ink underline decoration-pencil underline-offset-2;
+}
+
 .react-flow__attribution {
   display: none;
 }

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
+import { getBranchEdgeHandles } from '../src/lib/edgeHandles'
+import type { BranchDirection } from '../src/types/experiment'
 import {
   addChildExperiment,
   buildBranchDraft,
@@ -219,7 +221,7 @@ describe('graph helpers', () => {
     expect(() => JSON.parse(serializeExperimentDocument(nextDocument))).not.toThrow()
   })
 
-  it('can create a child experiment with an initial manual position', () => {
+  it('can create a child experiment with an initial manual position and branch direction', () => {
     const initial = createInitialDocument()
     const { document, createdNodeId: rootId } = createRootExperiment(initial, {
       title: 'Root',
@@ -229,9 +231,41 @@ describe('graph helpers', () => {
       document,
       rootId,
       { title: 'Child' },
-      { manualPosition: { x: 120, y: -220 } },
+      { manualPosition: { x: 120, y: -220 }, branchDirection: 'top' },
     )
 
     expect(nextDocument.nodesById[childId]?.manualPosition).toEqual({ x: 120, y: -220 })
+    expect(nextDocument.nodesById[childId]?.branchDirection).toBe('top')
+  })
+
+  it('selects edge handles from the branch direction', () => {
+    const source = { x: 100, y: 100 }
+
+    expect(getBranchEdgeHandles(source, { x: 100, y: -80 })).toEqual({
+      sourceHandle: 'source-top',
+      targetHandle: 'target-bottom',
+    })
+    expect(getBranchEdgeHandles(source, { x: 100, y: 280 })).toEqual({
+      sourceHandle: 'source-bottom',
+      targetHandle: 'target-top',
+    })
+    expect(getBranchEdgeHandles(source, { x: -200, y: 100 })).toEqual({
+      sourceHandle: 'source-left',
+      targetHandle: 'target-right',
+    })
+    expect(getBranchEdgeHandles(source, { x: 400, y: 100 })).toEqual({
+      sourceHandle: 'source-right',
+      targetHandle: 'target-left',
+    })
+  })
+
+  it('prefers saved branch direction when selecting edge handles', () => {
+    const source = { x: 100, y: 100 }
+    const target = { x: 380, y: -80 }
+
+    expect(getBranchEdgeHandles(source, target, 'top' satisfies BranchDirection)).toEqual({
+      sourceHandle: 'source-top',
+      targetHandle: 'target-bottom',
+    })
   })
 })
