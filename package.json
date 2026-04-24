@@ -1,11 +1,20 @@
 {
   "name": "experiment-route-map",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
+  "description": "实验路线演化图桌面应用",
+  "main": "electron/main.cjs",
+  "author": "ChenJiahao031008",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChenJiahao031008/experiment-route-map.git"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite --config config/vite.config.ts --host 127.0.0.1 --port 4173",
     "build": "tsc -b config/tsconfig.json && vite build --config config/vite.config.ts",
+    "dist:deb": "npm run build && electron-builder --linux deb --config config/electron-builder.cjs",
     "lint": "eslint . --config config/eslint.config.js",
     "test": "vitest run --config config/vitest.config.ts",
     "preview": "vite preview --config config/vite.config.ts"
@@ -25,6 +34,8 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "electron": "^41.3.0",
+    "electron-builder": "^26.8.1",
     "eslint": "^10.2.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",

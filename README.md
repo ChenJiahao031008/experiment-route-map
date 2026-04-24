@@ -48,12 +48,55 @@ http://127.0.0.1:4173/
 npm run lint
 npm run test
 npm run build
+npm run dist:deb
 npm run preview
 ```
+
+## 打包 deb
+
+项目通过 Electron + electron-builder 打包为 Linux 桌面应用。生成 deb 前先安装依赖：
+
+```bash
+npm install
+```
+
+生成安装包：
+
+```bash
+npm run dist:deb
+```
+
+构建完成后，安装包会输出到 `release/` 目录，文件名类似：
+
+```text
+release/experiment-route-map_0.0.1_amd64.deb
+```
+
+本机安装测试：
+
+```bash
+sudo apt install ./release/*.deb
+```
+
+安装后可以从系统应用菜单启动“实验路线演化图”。应用数据会保存在 Electron 的本地应用数据目录中，和浏览器开发环境的 localStorage 相互独立。
+
+发布到 GitHub Release 的建议流程：
+
+```bash
+npm run lint
+npm run test
+npm run dist:deb
+# 如果 v0.0.1 已经存在，先把 package.json 版本升级到下一个版本。
+git tag -a v0.0.2 -m "Release v0.0.2"
+git push origin master v0.0.2
+```
+
+仓库内置 GitHub Actions：推送 `v*` 标签后会自动构建 deb，并把 `release/*.deb` 上传到对应 GitHub Release。也可以在 Actions 页面手动运行“Build deb package”工作流，只生成构建产物不创建 Release。
 
 ## 目录结构
 
 ```text
+electron/         Electron 桌面应用入口
 src/
   components/
     editor/       实验详情表单
@@ -63,9 +106,10 @@ src/
   store/          Zustand 状态管理
   styles/         全局样式和主题变量
   types/          实验文档类型定义
-config/           Vite、Vitest、ESLint 和 TypeScript 配置
+config/           Vite、Vitest、ESLint、TypeScript 和打包配置
 tests/            单元测试
 public/           静态图标资源
+release/          本地打包产物，默认不提交
 ```
 
 ## 数据说明

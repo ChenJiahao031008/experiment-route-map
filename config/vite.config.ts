@@ -7,5 +7,6 @@ const projectRoot = fileURLToPath(new URL('..', import.meta.url))
 
 export default defineConfig({
   root: projectRoot,
+  base: './',
   plugins: [react(), tailwindcss()],
 })
