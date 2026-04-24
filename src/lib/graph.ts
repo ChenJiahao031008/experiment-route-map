@@ -1,6 +1,7 @@
 import {
   defaultExperimentDraft,
   documentVersion,
+  experimentStatuses,
   type ExperimentAttachment,
   type ExperimentDocument,
   type ExperimentDraft,
@@ -37,6 +38,9 @@ const normalizeAttachment = (attachment: Partial<ExperimentAttachment>): Experim
 
 const normalizeAttachments = (attachments: Partial<ExperimentAttachment>[] | undefined) =>
   (attachments ?? []).map(normalizeAttachment)
+
+const normalizeStatus = (status: unknown): ExperimentStatus =>
+  experimentStatuses.includes(status as ExperimentStatus) ? (status as ExperimentStatus) : 'running'
 
 const normalizeManualPosition = (
   position: Partial<ExperimentManualPosition> | undefined,
@@ -87,9 +91,11 @@ export const normalizeDocument = (raw: unknown): ExperimentDocument | null => {
         changeSummary: baseDraft.changeSummary,
         result: baseDraft.result,
         conclusion: baseDraft.conclusion,
-        status: baseDraft.status,
+        status: normalizeStatus(baseDraft.status),
         timestamp: baseDraft.timestamp,
-        tags: Array.isArray(baseDraft.tags) ? [...baseDraft.tags] : [],
+        tags: Array.isArray(baseDraft.tags)
+          ? baseDraft.tags.filter((tag): tag is string => typeof tag === 'string')
+          : [],
         notes: baseDraft.notes,
         branchLabel: baseDraft.branchLabel,
         attachments: normalizeAttachments(node.attachments),
@@ -102,9 +108,12 @@ export const normalizeDocument = (raw: unknown): ExperimentDocument | null => {
     }),
   )
 
+  const rootId =
+    candidate.rootId && nodesById[candidate.rootId] ? candidate.rootId : Object.keys(nodesById)[0] ?? null
+
   return {
     version: documentVersion,
-    rootId: candidate.rootId ?? null,
+    rootId,
     nodesById,
   }
 }

@@ -80,7 +80,7 @@ const ExperimentNodeCardBody = memo(function ExperimentNodeCardBody({
     <>
       <div
         className={clsx(
-          'drag-handle__custom relative mb-3 flex cursor-grab items-center justify-between rounded-2xl border border-dashed border-transparent px-2 py-1 text-[11px] uppercase tracking-[0.24em] text-ink/45 active:cursor-grabbing before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:translate-x-[-16px] before:translate-y-[16px] before:rounded-[20px] before:border before:border-dashed before:border-ink/35 before:bg-white/40 before:content-[""]',
+          'drag-handle__custom relative mb-2 flex cursor-grab items-center justify-between rounded-xl border border-dashed border-transparent px-2 py-1 text-[10px] uppercase tracking-[0.18em] text-ink/45 active:cursor-grabbing before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:translate-x-[-12px] before:translate-y-[12px] before:rounded-2xl before:border before:border-dashed before:border-ink/35 before:bg-white/40 before:content-[""]',
           isDragging ? 'border-ink/20 bg-white/65 before:hidden' : 'hover:border-ink/15 hover:bg-white/55 before:opacity-0',
         )}
       >
@@ -88,19 +88,19 @@ const ExperimentNodeCardBody = memo(function ExperimentNodeCardBody({
           <div className="flex items-center gap-2">
             <p>{branchLabel || '实验节点'}</p>
             {isCompareTarget ? (
-              <span className="rounded-full border border-[#8bb8c8] bg-[#e6f3f7] px-2 py-0.5 text-[10px] text-[#45697a] normal-case tracking-normal">
+              <span className="rounded-full border border-[#8bb8c8] bg-[#e6f3f7] px-1.5 py-0.5 text-[9px] text-[#45697a] normal-case tracking-normal">
                 对比目标
               </span>
             ) : null}
           </div>
         </div>
 
-        <span className={clsx('rounded-full border px-2.5 py-1 text-xs font-medium normal-case tracking-normal', statusClasses[status])}>
+        <span className={clsx('rounded-full border px-2 py-0.5 text-[11px] font-medium normal-case tracking-normal', statusClasses[status])}>
           {statusLabels[status]}
         </span>
       </div>
 
-      <div className="mb-3">
+      <div className="mb-2">
         {isEditingTitle ? (
           <input
             value={draftTitle}
@@ -118,7 +118,7 @@ const ExperimentNodeCardBody = memo(function ExperimentNodeCardBody({
                 commitTitle()
               }
             }}
-            className="nodrag nopan mt-1 w-full rounded-xl border border-pencil bg-white px-2 py-1 text-base font-semibold text-ink outline-none focus:border-ink/40"
+            className="nodrag nopan mt-1 w-full rounded-xl border border-pencil bg-white px-2 py-1 text-sm font-semibold text-ink outline-none focus:border-ink/40"
             autoFocus
           />
         ) : (
@@ -129,14 +129,14 @@ const ExperimentNodeCardBody = memo(function ExperimentNodeCardBody({
               stopCardEvent(event)
               onSelect()
             }}
-            className="nodrag nopan mt-1 line-clamp-2 text-left text-base font-semibold text-ink"
+            className="nodrag nopan mt-1 line-clamp-2 text-left text-sm font-semibold leading-5 text-ink"
           >
             {title || '未命名实验'}
           </button>
         )}
       </div>
 
-      <div className={clsx('mb-3 flex flex-wrap gap-2', isDragging ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100')}>
+      <div className={clsx('mb-2 flex flex-wrap gap-1.5', isDragging ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100')}>
         <button
           type="button"
           className="node-chip nodrag nopan"
@@ -183,19 +183,19 @@ const ExperimentNodeCardBody = memo(function ExperimentNodeCardBody({
         </button>
       </div>
 
-      <div className="space-y-3 text-sm leading-6 text-ink/80">
+      <div className="space-y-2 text-xs leading-5 text-ink/80">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.2em] text-ink/45">改动内容</p>
-          <p className="mt-1 line-clamp-3 min-h-[3.5rem]">{changeSummary || '尚未记录本次改动。'}</p>
+          <p className="text-[10px] uppercase tracking-[0.16em] text-ink/45">改动内容</p>
+          <p className="mt-1 line-clamp-2 min-h-[2.5rem]">{changeSummary || '尚未记录本次改动。'}</p>
         </div>
 
         <div>
-          <p className="text-[11px] uppercase tracking-[0.2em] text-ink/45">实验结论</p>
-          <p className="mt-1 line-clamp-3 min-h-[3.5rem]">{conclusion || '尚未沉淀出明确结论。'}</p>
+          <p className="text-[10px] uppercase tracking-[0.16em] text-ink/45">实验结论</p>
+          <p className="mt-1 line-clamp-2 min-h-[2.5rem]">{conclusion || '尚未沉淀出明确结论。'}</p>
         </div>
       </div>
 
-      <div className="mt-4 flex items-center justify-between border-t border-dashed border-pencil/80 pt-3 text-xs text-ink/55">
+      <div className="mt-3 flex items-center justify-between gap-2 border-t border-dashed border-pencil/80 pt-2 text-[11px] text-ink/55">
         <span>记录时间：{timestamp || '未填写'}</span>
         <span>{attachmentCount > 0 ? `${attachmentCount} 张图` : '无附件'}</span>
       </div>
@@ -239,21 +239,31 @@ function ExperimentNodeCardComponent({ data, selected }: NodeProps<ExperimentNod
   }
 
   const commitTitle = () => {
+    const nextTitle = draftTitle.trim()
+
     setIsEditingTitle(false)
-    if (draftTitle.trim() && draftTitle !== data.title) {
-      data.onRename(data.nodeId, draftTitle.trim())
-    } else {
+
+    if (!nextTitle || nextTitle === data.title) {
       setDraftTitle(data.title)
+      return
     }
+
+    data.onRename(data.nodeId, nextTitle)
+  }
+
+  const selectNode = () => data.onSelect(data.nodeId)
+  const startEditingTitle = () => {
+    setIsEditingTitle(true)
+    selectNode()
   }
 
   const cardClassName = data.isDragging
     ? clsx(
-        'group isolate relative min-w-[260px] max-w-[280px] rounded-[24px] border bg-note px-4 py-4 text-left border-ink/20 shadow-none will-change-transform [transform:translateZ(0)] [backface-visibility:hidden]',
+        'group isolate relative min-w-[220px] max-w-[240px] rounded-[20px] border bg-note px-3 py-3 text-left border-ink/20 shadow-none will-change-transform [transform:translateZ(0)] [backface-visibility:hidden]',
         data.isDimmed && 'opacity-40 saturate-50',
       )
     : clsx(
-        'group isolate relative min-w-[260px] max-w-[280px] rounded-[24px] border bg-note px-4 py-4 text-left shadow-note',
+        'group isolate relative min-w-[220px] max-w-[240px] rounded-[20px] border bg-note px-3 py-3 text-left shadow-note',
         selected || data.isSelected
           ? 'border-ink/60 ring-2 ring-sun/80 shadow-[0_24px_60px_rgba(97,75,48,0.20)]'
           : 'border-pencil/80',
@@ -264,10 +274,7 @@ function ExperimentNodeCardComponent({ data, selected }: NodeProps<ExperimentNod
   return (
     <div
       className={cardClassName}
-      onDoubleClick={() => {
-        setIsEditingTitle(true)
-        data.onSelect(data.nodeId)
-      }}
+      onDoubleClick={startEditingTitle}
     >
       <Handle type="target" position={Position.Left} className="!h-3 !w-3 !border-2 !border-paper !bg-ink" />
       <Handle type="target" position={Position.Top} className="!h-3 !w-3 !border-2 !border-paper !bg-ink" />
@@ -282,14 +289,11 @@ function ExperimentNodeCardComponent({ data, selected }: NodeProps<ExperimentNod
         stopCardEvent={stopCardEvent}
         setDraftTitle={setDraftTitle}
         commitTitle={commitTitle}
-        onSelect={() => data.onSelect(data.nodeId)}
+        onSelect={selectNode}
         onBranch={(direction) => data.onBranch(data.nodeId, direction)}
         onCycleStatus={() => data.onCycleStatus(data.nodeId)}
         onSetCompare={() => data.onSetCompare(data.nodeId)}
-        onStartEditing={() => {
-          setIsEditingTitle(true)
-          data.onSelect(data.nodeId)
-        }}
+        onStartEditing={startEditingTitle}
         changeSummary={data.changeSummary}
         conclusion={data.conclusion}
         timestamp={data.timestamp}
@@ -308,7 +312,7 @@ function ExperimentNodeCardComponent({ data, selected }: NodeProps<ExperimentNod
             aria-label={button.label}
             title={button.label}
             className={clsx(
-              'pointer-events-none nodrag nopan absolute flex h-8 w-8 items-center justify-center rounded-full border border-pencil bg-white/95 text-lg font-semibold leading-none text-ink shadow-[0_10px_24px_rgba(97,75,48,0.18)] transition hover:border-ink/35 hover:bg-sun focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink/45 group-hover:pointer-events-auto group-focus-within:pointer-events-auto',
+              'pointer-events-none nodrag nopan absolute flex h-7 w-7 items-center justify-center rounded-full border border-pencil bg-white/95 text-base font-semibold leading-none text-ink shadow-[0_10px_24px_rgba(97,75,48,0.18)] transition hover:border-ink/35 hover:bg-sun focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink/45 group-hover:pointer-events-auto group-focus-within:pointer-events-auto',
               button.className,
             )}
             onMouseDown={stopCardEvent}

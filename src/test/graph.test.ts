@@ -116,6 +116,26 @@ describe('graph helpers', () => {
     expect(normalized?.nodesById.root?.manualPosition).toBeUndefined()
   })
 
+  it('normalizes invalid imported document fields', () => {
+    const normalized = normalizeDocument({
+      rootId: 'missing-root',
+      nodesById: {
+        root: {
+          id: 'root',
+          parentId: null,
+          childIds: [],
+          title: 'Root',
+          status: 'unknown',
+          tags: ['valid', 123, null],
+        },
+      },
+    })
+
+    expect(normalized?.rootId).toBe('root')
+    expect(normalized?.nodesById.root?.status).toBe('running')
+    expect(normalized?.nodesById.root?.tags).toEqual(['valid'])
+  })
+
   it('preserves valid manual positions and ignores invalid ones during normalization', () => {
     const normalized = normalizeDocument({
       rootId: 'root',

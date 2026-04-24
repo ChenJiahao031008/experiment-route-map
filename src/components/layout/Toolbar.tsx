@@ -1,3 +1,4 @@
+import { useRef, type ChangeEvent } from 'react'
 import clsx from 'clsx'
 
 import {
@@ -13,6 +14,8 @@ type ToolbarProps = {
   onToggleFilter: (status: ExperimentStatus) => void
   onCreateExperiment: () => void
   onExport: () => void
+  onImport: (file: File) => void
+  importMessage: { kind: 'success' | 'error'; text: string } | null
 }
 
 export function Toolbar({
@@ -22,7 +25,20 @@ export function Toolbar({
   onToggleFilter,
   onCreateExperiment,
   onExport,
+  onImport,
+  importMessage,
 }: ToolbarProps) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+
+    if (file) {
+      onImport(file)
+    }
+  }
+
   return (
     <header className="border-b border-pencil/70 bg-paper/90 px-6 py-5 backdrop-blur-sm">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -35,11 +51,32 @@ export function Toolbar({
           <button className="note-button note-button-primary" type="button" onClick={onCreateExperiment}>
             新建实验
           </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+          <button className="note-button" type="button" onClick={() => fileInputRef.current?.click()}>
+            导入 JSON
+          </button>
           <button className="note-button" type="button" onClick={onExport}>
             导出 JSON
           </button>
         </div>
       </div>
+
+      {importMessage ? (
+        <p
+          className={clsx(
+            'mt-3 text-sm',
+            importMessage.kind === 'success' ? 'text-success-ink' : 'text-failed-ink',
+          )}
+        >
+          {importMessage.text}
+        </p>
+      ) : null}
 
       <div className="mt-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <label className="relative block xl:max-w-md xl:flex-1">

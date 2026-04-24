@@ -83,7 +83,7 @@ select {
 }
 
 .node-chip {
-  @apply rounded-full border border-pencil bg-white/80 px-3 py-1 text-xs text-ink transition hover:border-ink/35 hover:bg-white;
+  @apply rounded-full border border-pencil bg-white/80 px-2.5 py-0.5 text-[11px] text-ink transition hover:border-ink/35 hover:bg-white;
 }
 
 .markdown-note {
@@ -127,4 +127,3 @@ select {
 .react-flow__background {
   opacity: 0.7;
 }
-

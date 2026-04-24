@@ -42,6 +42,7 @@ type ExperimentStoreActions = {
   createExperiment: () => void
   branchFromSelected: () => void
   branchFromNode: (nodeId: ExperimentNodeId, manualPosition?: ExperimentManualPosition) => void
+  importDocument: (document: ExperimentDocument) => void
   saveSelectedNode: () => void
   cycleNodeStatus: (nodeId: ExperimentNodeId) => void
   updateNodeTitle: (nodeId: ExperimentNodeId, title: string) => void
@@ -215,6 +216,19 @@ export const useExperimentStore = create<ExperimentStore>()(
             document: nextDocument,
             selectedNodeId: createdNodeId,
             detailDraft: getDraftFromNode(getNodeById(nextDocument, createdNodeId)),
+          })
+        },
+
+        importDocument: (nextDocument) => {
+          const selectedNodeId = nextDocument.rootId
+
+          set({
+            document: nextDocument,
+            selectedNodeId,
+            compareNodeId: null,
+            detailDraft: getDraftFromNode(getNodeById(nextDocument, selectedNodeId)),
+            searchQuery: '',
+            statusFilters: [],
           })
         },
 
