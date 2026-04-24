@@ -10,6 +10,8 @@ import {
   deleteExperimentSubtree,
   getNodeById,
   normalizeDocument,
+  moveExperimentSubtree,
+  updateExperimentEdgeConnection,
   updateExperimentNode,
   updateExperimentNodeManualPosition,
 } from '../lib/graph'
@@ -19,6 +21,7 @@ import {
   type BranchDirection,
   type ExperimentDocument,
   type ExperimentDraft,
+  type ExperimentEdgeConnection,
   type ExperimentManualPosition,
   type ExperimentNode,
   type ExperimentNodeId,
@@ -48,6 +51,13 @@ type ExperimentStoreActions = {
   cycleNodeStatus: (nodeId: ExperimentNodeId) => void
   updateNodeTitle: (nodeId: ExperimentNodeId, title: string) => void
   setNodeManualPosition: (nodeId: ExperimentNodeId, position: { x: number; y: number }) => void
+  moveNodeToParent: (
+    nodeId: ExperimentNodeId,
+    parentId: ExperimentNodeId,
+    position: ExperimentManualPosition,
+    branchDirection?: BranchDirection,
+  ) => void
+  updateNodeEdgeConnection: (nodeId: ExperimentNodeId, edgeConnection: ExperimentEdgeConnection) => void
   deleteSelectedNode: () => void
   setSearchQuery: (query: string) => void
   toggleStatusFilter: (status: ExperimentStatus) => void
@@ -287,6 +297,30 @@ export const useExperimentStore = create<ExperimentStore>()(
         setNodeManualPosition: (nodeId, position) => {
           const state = get()
           const nextDocument = updateExperimentNodeManualPosition(state.document, nodeId, position)
+
+          set({ document: nextDocument })
+        },
+
+        moveNodeToParent: (nodeId, parentId, position, branchDirection) => {
+          const state = get()
+          const nextDocument = moveExperimentSubtree(state.document, nodeId, parentId, {
+            manualPosition: position,
+            branchDirection,
+          })
+
+          set({
+            document: nextDocument,
+            selectedNodeId: nodeId,
+            detailDraft:
+              state.selectedNodeId === nodeId
+                ? getDraftFromNode(getNodeById(nextDocument, nodeId))
+                : state.detailDraft,
+          })
+        },
+
+        updateNodeEdgeConnection: (nodeId, edgeConnection) => {
+          const state = get()
+          const nextDocument = updateExperimentEdgeConnection(state.document, nodeId, edgeConnection)
 
           set({ document: nextDocument })
         },

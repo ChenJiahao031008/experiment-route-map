@@ -10,8 +10,10 @@ import {
   createRootExperiment,
   deleteExperimentSubtree,
   getVisibleNodeIds,
+  moveExperimentSubtree,
   normalizeDocument,
   serializeExperimentDocument,
+  updateExperimentEdgeConnection,
   updateExperimentNodeManualPosition,
 } from '../src/lib/graph'
 
@@ -267,5 +269,97 @@ describe('graph helpers', () => {
       sourceHandle: 'source-top',
       targetHandle: 'target-bottom',
     })
+  })
+
+  it('prefers manual edge connection when selecting edge handles', () => {
+    const source = { x: 100, y: 100 }
+    const target = { x: 380, y: -80 }
+
+    expect(getBranchEdgeHandles(source, target, 'top', {
+      sourceDirection: 'bottom',
+      targetDirection: 'right',
+    })).toEqual({
+      sourceHandle: 'source-bottom',
+      targetHandle: 'target-right',
+    })
+  })
+
+  it('updates a node edge connection without changing tree structure', () => {
+    const initial = createInitialDocument()
+    const { document: rootDocument, createdNodeId: rootId } = createRootExperiment(initial, {
+      title: 'Root',
+    })
+    const { document: childDocument, createdNodeId: childId } = addChildExperiment(
+      rootDocument,
+      rootId,
+      { title: 'Child' },
+    )
+
+    const nextDocument = updateExperimentEdgeConnection(childDocument, childId, {
+      sourceDirection: 'top',
+      targetDirection: 'left',
+    })
+
+    expect(nextDocument.nodesById[rootId]?.childIds).toEqual([childId])
+    expect(nextDocument.nodesById[childId]?.parentId).toBe(rootId)
+    expect(nextDocument.nodesById[childId]?.edgeConnection).toEqual({
+      sourceDirection: 'top',
+      targetDirection: 'left',
+    })
+  })
+
+  it('moves a subtree to a different parent without changing descendants', () => {
+    const initial = createInitialDocument()
+    const { document: rootDocument, createdNodeId: rootId } = createRootExperiment(initial, {
+      title: 'Root',
+    })
+    const { document: firstBranchDocument, createdNodeId: childA } = addChildExperiment(
+      rootDocument,
+      rootId,
+      { title: 'A' },
+    )
+    const { document: secondBranchDocument, createdNodeId: childB } = addChildExperiment(
+      firstBranchDocument,
+      rootId,
+      { title: 'B' },
+    )
+    const { document: nestedDocument, createdNodeId: grandchild } = addChildExperiment(
+      secondBranchDocument,
+      childA,
+      { title: 'A1' },
+    )
+
+    const movedDocument = moveExperimentSubtree(nestedDocument, childA, childB, {
+      manualPosition: { x: 640, y: 220 },
+      branchDirection: 'right',
+    })
+
+    expect(movedDocument.nodesById[rootId]?.childIds).toEqual([childB])
+    expect(movedDocument.nodesById[childB]?.childIds).toContain(childA)
+    expect(movedDocument.nodesById[childA]?.parentId).toBe(childB)
+    expect(movedDocument.nodesById[childA]?.childIds).toEqual([grandchild])
+    expect(movedDocument.nodesById[childA]?.manualPosition).toEqual({ x: 640, y: 220 })
+    expect(movedDocument.nodesById[childA]?.branchDirection).toBe('right')
+  })
+
+  it('prevents moving a node below itself or its descendants', () => {
+    const initial = createInitialDocument()
+    const { document: rootDocument, createdNodeId: rootId } = createRootExperiment(initial, {
+      title: 'Root',
+    })
+    const { document: childDocument, createdNodeId: childId } = addChildExperiment(
+      rootDocument,
+      rootId,
+      { title: 'Child' },
+    )
+    const { document: nestedDocument, createdNodeId: grandchildId } = addChildExperiment(
+      childDocument,
+      childId,
+      { title: 'Grandchild' },
+    )
+
+    expect(() => moveExperimentSubtree(nestedDocument, childId, childId)).toThrow()
+    expect(() => moveExperimentSubtree(nestedDocument, childId, grandchildId)).toThrow()
+    expect(() => moveExperimentSubtree(nestedDocument, rootId, childId)).toThrow()
   })
 })

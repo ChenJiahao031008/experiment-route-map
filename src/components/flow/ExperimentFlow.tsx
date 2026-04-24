@@ -8,6 +8,7 @@ import ReactFlow, {
   getNodesBounds,
   useEdgesState,
   useNodesState,
+  type Connection,
   type Edge,
   type Node,
   type NodeChange,
@@ -16,11 +17,13 @@ import ReactFlow, {
   type OnNodesChange,
   type ReactFlowInstance,
   type XYPosition,
+  type IsValidConnection,
+  type OnEdgeUpdateFunc,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 
-import { getBranchEdgeHandles } from '../../lib/edgeHandles'
-import { computeTreeLayout, getNodePath, getVisibleNodeIds } from '../../lib/graph'
+import { getBranchDirectionFromHandle, getBranchDirectionFromPositions, getBranchEdgeHandles } from '../../lib/edgeHandles'
+import { collectSubtreeIds, computeTreeLayout, getNodePath, getVisibleNodeIds } from '../../lib/graph'
 import { useExperimentStore } from '../../store/experimentStore'
 import type { BranchDirection } from '../../types/experiment'
 import { ExperimentNodeCard, type ExperimentNodeData } from './ExperimentNodeCard'
@@ -66,6 +69,7 @@ const viewportPadding = {
   x: 72,
   y: 64,
 }
+const nodeDropTargetPadding = 28
 
 type ExperimentFlowProps = {
   onCreateRoot: () => void
@@ -73,6 +77,7 @@ type ExperimentFlowProps = {
 
 export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
   const [activeDragNodeId, setActiveDragNodeId] = useState<string | null>(null)
+  const [activeDropTargetNodeId, setActiveDropTargetNodeId] = useState<string | null>(null)
   const flowInstanceRef = useRef<ReactFlowInstance | null>(null)
   const flowContainerRef = useRef<HTMLDivElement | null>(null)
   const lastAutoFitNodeIdsKeyRef = useRef<string | null>(null)
@@ -88,6 +93,8 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
   const setCompareNode = useExperimentStore((state) => state.setCompareNode)
   const updateNodeTitle = useExperimentStore((state) => state.updateNodeTitle)
   const setNodeManualPosition = useExperimentStore((state) => state.setNodeManualPosition)
+  const moveNodeToParent = useExperimentStore((state) => state.moveNodeToParent)
+  const updateNodeEdgeConnection = useExperimentStore((state) => state.updateNodeEdgeConnection)
 
   const toggleCompareNode = useCallback(
     (nodeId: string) => setCompareNode(nodeId === compareNodeId ? null : nodeId),
@@ -107,6 +114,74 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
   const visibleIdSet = useMemo(() => new Set(visibleNodeIds), [visibleNodeIds])
   const selectedPathSet = useMemo(() => new Set(selectedPath), [selectedPath])
   const nodeIdsKey = useMemo(() => Object.keys(document.nodesById).sort().join('|'), [document.nodesById])
+
+  const canMoveNodeToParent = useCallback(
+    (nodeId: string, parentId: string) => {
+      const node = document.nodesById[nodeId]
+
+      if (!node?.parentId || nodeId === parentId) {
+        return false
+      }
+
+      return !collectSubtreeIds(document, nodeId).includes(parentId)
+    },
+    [document],
+  )
+
+  const getDropTargetNodeId = useCallback(
+    (draggedNode: Node): string | null => {
+      const instance = flowInstanceRef.current
+      if (!instance) {
+        return null
+      }
+
+      const draggedWidth = draggedNode.width ?? 0
+      const draggedHeight = draggedNode.height ?? 0
+      const draggedCenter = {
+        x: draggedNode.position.x + draggedWidth / 2,
+        y: draggedNode.position.y + draggedHeight / 2,
+      }
+
+      let bestTargetId: string | null = null
+      let bestTargetDistance = Number.POSITIVE_INFINITY
+
+      instance.getNodes().forEach((candidateNode) => {
+        if (!canMoveNodeToParent(draggedNode.id, candidateNode.id)) {
+          return
+        }
+
+        const width = candidateNode.width ?? 0
+        const height = candidateNode.height ?? 0
+        const left = candidateNode.position.x - nodeDropTargetPadding
+        const right = candidateNode.position.x + width + nodeDropTargetPadding
+        const top = candidateNode.position.y - nodeDropTargetPadding
+        const bottom = candidateNode.position.y + height + nodeDropTargetPadding
+
+        if (
+          draggedCenter.x < left ||
+          draggedCenter.x > right ||
+          draggedCenter.y < top ||
+          draggedCenter.y > bottom
+        ) {
+          return
+        }
+
+        const candidateCenter = {
+          x: candidateNode.position.x + width / 2,
+          y: candidateNode.position.y + height / 2,
+        }
+        const distance = Math.hypot(draggedCenter.x - candidateCenter.x, draggedCenter.y - candidateCenter.y)
+
+        if (distance < bestTargetDistance) {
+          bestTargetId = candidateNode.id
+          bestTargetDistance = distance
+        }
+      })
+
+      return bestTargetId
+    },
+    [canMoveNodeToParent],
+  )
 
   const scheduleFitView = useCallback(() => {
     window.requestAnimationFrame(() => {
@@ -212,6 +287,7 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
       const isSelected = node.id === selectedNodeId
       const isCompareTarget = node.id === compareNodeId
       const isDragging = node.id === activeDragNodeId
+      const isDropTarget = node.id === activeDropTargetNodeId
 
       return {
         id: node.id,
@@ -230,6 +306,7 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
           isSelected,
           isCompareTarget,
           isDragging,
+          isDropTarget,
           isDimmed: !isVisible,
           attachmentCount: node.attachments.length,
           onSelect: selectNode,
@@ -240,7 +317,7 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
         },
       }
     })
-  }, [activeDragNodeId, compareNodeId, cycleNodeStatus, document, getNodeCanvasPosition, handleBranchFromNode, selectNode, selectedNodeId, toggleCompareNode, updateNodeTitle, visibleIdSet])
+  }, [activeDragNodeId, activeDropTargetNodeId, compareNodeId, cycleNodeStatus, document, getNodeCanvasPosition, handleBranchFromNode, selectNode, selectedNodeId, toggleCompareNode, updateNodeTitle, visibleIdSet])
 
   const documentEdges = useMemo<Edge[]>(() => {
     return Object.values(document.nodesById)
@@ -251,6 +328,7 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
           getNodeCanvasPosition(node.parentId!),
           getNodeCanvasPosition(node.id),
           node.branchDirection,
+          node.edgeConnection,
         )
 
         return {
@@ -310,18 +388,79 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
   const handleNodeDragStart = useCallback<NodeDragHandler>(
     (_, node) => {
       setActiveDragNodeId(node.id)
+      setActiveDropTargetNodeId(null)
       selectNode(node.id)
     },
     [selectNode],
   )
 
+  const handleNodeDrag = useCallback<NodeDragHandler>(
+    (_, node) => {
+      setActiveDropTargetNodeId(getDropTargetNodeId(node))
+    },
+    [getDropTargetNodeId],
+  )
+
   const handleNodeDragStop = useCallback<NodeDragHandler>(
     (_, node) => {
       const { x, y } = node.position as XYPosition
-      setNodeManualPosition(node.id, { x, y })
+      const dropTargetNodeId = getDropTargetNodeId(node)
+      const dropTargetPosition = dropTargetNodeId ? getNodeCanvasPosition(dropTargetNodeId) : null
+
+      if (dropTargetNodeId && dropTargetPosition) {
+        moveNodeToParent(
+          node.id,
+          dropTargetNodeId,
+          { x, y },
+          getBranchDirectionFromPositions(dropTargetPosition, { x, y }),
+        )
+      } else {
+        setNodeManualPosition(node.id, { x, y })
+      }
+
+      setActiveDropTargetNodeId(null)
       setActiveDragNodeId((current) => (current === node.id ? null : current))
     },
-    [setNodeManualPosition],
+    [getDropTargetNodeId, getNodeCanvasPosition, moveNodeToParent, setNodeManualPosition],
+  )
+
+  const isValidEdgeReconnect = useCallback<IsValidConnection>(
+    (connection) => {
+      if (!('source' in connection) || !connection.source || !connection.target) {
+        return false
+      }
+
+      const targetNode = document.nodesById[connection.target]
+      return targetNode?.parentId === connection.source
+    },
+    [document],
+  )
+
+  const handleEdgeReconnect = useCallback<OnEdgeUpdateFunc>(
+    (oldEdge: Edge, connection: Connection) => {
+      if (!connection.source || !connection.target) {
+        return
+      }
+
+      const targetNode = document.nodesById[oldEdge.target]
+      if (
+        oldEdge.source !== connection.source ||
+        oldEdge.target !== connection.target ||
+        targetNode?.parentId !== oldEdge.source
+      ) {
+        return
+      }
+
+      const sourceDirection = getBranchDirectionFromHandle(connection.sourceHandle)
+      const targetDirection = getBranchDirectionFromHandle(connection.targetHandle)
+
+      if (!sourceDirection || !targetDirection) {
+        return
+      }
+
+      updateNodeEdgeConnection(oldEdge.target, { sourceDirection, targetDirection })
+    },
+    [document, updateNodeEdgeConnection],
   )
 
   const handleFlowInit = useCallback(
@@ -356,13 +495,18 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
         edges={edges}
         nodeTypes={nodeTypes}
         nodesDraggable
+        edgesUpdatable
+        reconnectRadius={16}
         fitView
         fitViewOptions={fitViewOptions}
         onInit={handleFlowInit}
         onNodeClick={(_, node) => selectNode(node.id)}
         onNodesChange={handleNodesChange}
         onNodeDragStart={handleNodeDragStart}
+        onNodeDrag={handleNodeDrag}
         onNodeDragStop={handleNodeDragStop}
+        onReconnect={handleEdgeReconnect}
+        isValidConnection={isValidEdgeReconnect}
         defaultEdgeOptions={defaultEdgeOptions}
         proOptions={proOptions}
       >

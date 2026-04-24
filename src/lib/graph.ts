@@ -6,6 +6,7 @@ import {
   type ExperimentAttachment,
   type ExperimentDocument,
   type ExperimentDraft,
+  type ExperimentEdgeConnection,
   type ExperimentManualPosition,
   type ExperimentNode,
   type ExperimentNodeId,
@@ -47,6 +48,15 @@ const branchDirections = ['left', 'right', 'top', 'bottom'] as const
 
 const normalizeBranchDirection = (direction: unknown): BranchDirection | undefined =>
   branchDirections.includes(direction as BranchDirection) ? (direction as BranchDirection) : undefined
+
+const normalizeEdgeConnection = (
+  edgeConnection: Partial<ExperimentEdgeConnection> | undefined,
+): ExperimentEdgeConnection | undefined => {
+  const sourceDirection = normalizeBranchDirection(edgeConnection?.sourceDirection)
+  const targetDirection = normalizeBranchDirection(edgeConnection?.targetDirection)
+
+  return sourceDirection && targetDirection ? { sourceDirection, targetDirection } : undefined
+}
 
 const normalizeManualPosition = (
   position: Partial<ExperimentManualPosition> | undefined,
@@ -106,6 +116,7 @@ export const normalizeDocument = (raw: unknown): ExperimentDocument | null => {
         branchLabel: baseDraft.branchLabel,
         attachments: normalizeAttachments(node.attachments),
         branchDirection: normalizeBranchDirection(node.branchDirection),
+        edgeConnection: normalizeEdgeConnection(node.edgeConnection),
         manualPosition: normalizeManualPosition(node.manualPosition),
         createdAt: node.createdAt ?? nowIso(),
         updatedAt: node.updatedAt ?? node.createdAt ?? nowIso(),
@@ -150,6 +161,7 @@ export const createExperimentNode = (
     branchLabel: baseDraft.branchLabel,
     attachments: normalizeAttachments(baseDraft.attachments),
     branchDirection: undefined,
+    edgeConnection: undefined,
     manualPosition: undefined,
     createdAt,
     updatedAt: createdAt,
@@ -296,9 +308,95 @@ export const updateExperimentNodeManualPosition = (
     ...document,
     nodesById: {
       ...document.nodesById,
+    [nodeId]: {
+      ...node,
+      manualPosition: normalizeManualPosition(manualPosition),
+      },
+    },
+  }
+}
+
+export const updateExperimentEdgeConnection = (
+  document: ExperimentDocument,
+  nodeId: ExperimentNodeId,
+  edgeConnection: ExperimentEdgeConnection,
+) => {
+  const node = document.nodesById[nodeId]
+
+  if (!node) {
+    throw new Error(`Experiment ${nodeId} not found`)
+  }
+
+  return {
+    ...document,
+    nodesById: {
+      ...document.nodesById,
       [nodeId]: {
         ...node,
-        manualPosition: normalizeManualPosition(manualPosition),
+        edgeConnection: normalizeEdgeConnection(edgeConnection),
+        updatedAt: nowIso(),
+      },
+    },
+  }
+}
+
+export const moveExperimentSubtree = (
+  document: ExperimentDocument,
+  nodeId: ExperimentNodeId,
+  nextParentId: ExperimentNodeId,
+  options: { manualPosition?: ExperimentManualPosition; branchDirection?: BranchDirection } = {},
+) => {
+  const node = document.nodesById[nodeId]
+  const nextParentNode = document.nodesById[nextParentId]
+
+  if (!node) {
+    throw new Error(`Experiment ${nodeId} not found`)
+  }
+
+  if (!nextParentNode) {
+    throw new Error(`Parent experiment ${nextParentId} not found`)
+  }
+
+  if (!node.parentId) {
+    throw new Error('Root experiment cannot be moved')
+  }
+
+  if (nodeId === nextParentId || collectSubtreeIds(document, nodeId).includes(nextParentId)) {
+    throw new Error('Cannot move an experiment under itself or its descendants')
+  }
+
+  const currentParentNode = document.nodesById[node.parentId]
+  const updatedAt = nowIso()
+  const normalizedManualPosition = normalizeManualPosition(options.manualPosition)
+  const normalizedBranchDirection = normalizeBranchDirection(options.branchDirection)
+
+  return {
+    ...document,
+    nodesById: {
+      ...document.nodesById,
+      ...(currentParentNode
+        ? {
+            [currentParentNode.id]: {
+              ...currentParentNode,
+              childIds: currentParentNode.childIds.filter((childId) => childId !== nodeId),
+              updatedAt,
+            },
+          }
+        : {}),
+      [nextParentId]: {
+        ...nextParentNode,
+        childIds: nextParentNode.childIds.includes(nodeId)
+          ? nextParentNode.childIds
+          : [...nextParentNode.childIds, nodeId],
+        updatedAt,
+      },
+      [nodeId]: {
+        ...node,
+        parentId: nextParentId,
+        branchDirection: normalizedBranchDirection,
+        edgeConnection: undefined,
+        manualPosition: normalizedManualPosition,
+        updatedAt,
       },
     },
   }

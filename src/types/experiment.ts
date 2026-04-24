@@ -23,6 +23,11 @@ export type ExperimentManualPosition = {
   y: number
 }
 
+export type ExperimentEdgeConnection = {
+  sourceDirection: BranchDirection
+  targetDirection: BranchDirection
+}
+
 export type ExperimentNode = {
   id: ExperimentNodeId
   parentId: ExperimentNodeId | null
@@ -38,6 +43,7 @@ export type ExperimentNode = {
   branchLabel: string
   attachments: ExperimentAttachment[]
   branchDirection?: BranchDirection
+  edgeConnection?: ExperimentEdgeConnection
   manualPosition?: ExperimentManualPosition
   createdAt: string
   updatedAt: string

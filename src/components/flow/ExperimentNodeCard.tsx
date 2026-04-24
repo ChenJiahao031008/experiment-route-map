@@ -16,6 +16,7 @@ type ExperimentNodeData = {
   isSelected: boolean
   isCompareTarget: boolean
   isDragging: boolean
+  isDropTarget: boolean
   isDimmed: boolean
   attachmentCount: number
   onSelect: (nodeId: string) => void
@@ -293,6 +294,7 @@ function ExperimentNodeCardComponent({ data, selected }: NodeProps<ExperimentNod
           ? 'border-ink/60 ring-2 ring-sun/80 shadow-[0_24px_60px_rgba(97,75,48,0.20)]'
           : 'border-pencil/80',
         data.isCompareTarget && 'ring-2 ring-[#8bb8c8]/70',
+        data.isDropTarget && 'border-ink/55 ring-2 ring-[#8bb8c8]/80 shadow-[0_24px_60px_rgba(83,112,123,0.22)]',
         data.isDimmed && 'opacity-40 saturate-50',
       )
 
