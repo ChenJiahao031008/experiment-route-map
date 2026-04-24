@@ -174,6 +174,7 @@ export const addChildExperiment = (
   document: ExperimentDocument,
   parentId: ExperimentNodeId,
   draft: Partial<ExperimentDraft> = {},
+  options: { manualPosition?: ExperimentManualPosition } = {},
 ) => {
   const parentNode = document.nodesById[parentId]
 
@@ -181,7 +182,10 @@ export const addChildExperiment = (
     throw new Error(`Parent experiment ${parentId} not found`)
   }
 
-  const childNode = createExperimentNode(draft, parentId)
+  const childNode: ExperimentNode = {
+    ...createExperimentNode(draft, parentId),
+    manualPosition: normalizeManualPosition(options.manualPosition),
+  }
 
   return {
     document: {

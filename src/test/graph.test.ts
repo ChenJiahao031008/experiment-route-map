@@ -198,4 +198,20 @@ describe('graph helpers', () => {
     expect(nextDocument.nodesById[createdNodeId]?.manualPosition).toEqual({ x: 420, y: 260 })
     expect(() => JSON.parse(serializeExperimentDocument(nextDocument))).not.toThrow()
   })
+
+  it('can create a child experiment with an initial manual position', () => {
+    const initial = createInitialDocument()
+    const { document, createdNodeId: rootId } = createRootExperiment(initial, {
+      title: 'Root',
+    })
+
+    const { document: nextDocument, createdNodeId: childId } = addChildExperiment(
+      document,
+      rootId,
+      { title: 'Child' },
+      { manualPosition: { x: 120, y: -220 } },
+    )
+
+    expect(nextDocument.nodesById[childId]?.manualPosition).toEqual({ x: 120, y: -220 })
+  })
 })

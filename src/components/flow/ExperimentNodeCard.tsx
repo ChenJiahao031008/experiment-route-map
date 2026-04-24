@@ -4,6 +4,8 @@ import { Handle, Position, type NodeProps } from 'reactflow'
 
 import { statusLabels, type ExperimentStatus } from '../../types/experiment'
 
+type BranchDirection = 'left' | 'right' | 'top' | 'bottom'
+
 type ExperimentNodeData = {
   nodeId: string
   title: string
@@ -18,7 +20,7 @@ type ExperimentNodeData = {
   isDimmed: boolean
   attachmentCount: number
   onSelect: (nodeId: string) => void
-  onBranch: (nodeId: string) => void
+  onBranch: (nodeId: string, direction?: BranchDirection) => void
   onCycleStatus: (nodeId: string) => void
   onSetCompare: (nodeId: string) => void
   onRename: (nodeId: string, title: string) => void
@@ -42,7 +44,7 @@ type ExperimentNodeCardBodyProps = {
   setDraftTitle: (title: string) => void
   commitTitle: () => void
   onSelect: () => void
-  onBranch: () => void
+  onBranch: (direction?: BranchDirection) => void
   onCycleStatus: () => void
   onSetCompare: () => void
   onStartEditing: () => void
@@ -141,7 +143,7 @@ const ExperimentNodeCardBody = memo(function ExperimentNodeCardBody({
           onMouseDown={stopCardEvent}
           onClick={(event) => {
             stopCardEvent(event)
-            onBranch()
+            onBranch('right')
           }}
         >
           分叉
@@ -201,6 +203,33 @@ const ExperimentNodeCardBody = memo(function ExperimentNodeCardBody({
   )
 })
 
+const branchDirectionButtons: Array<{
+  direction: BranchDirection
+  label: string
+  className: string
+}> = [
+  {
+    direction: 'top',
+    label: '向上新增',
+    className: 'left-1/2 top-0 -translate-x-1/2 -translate-y-1/2',
+  },
+  {
+    direction: 'right',
+    label: '向右新增',
+    className: 'right-0 top-1/2 -translate-y-1/2 translate-x-1/2',
+  },
+  {
+    direction: 'bottom',
+    label: '向下新增',
+    className: 'bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2',
+  },
+  {
+    direction: 'left',
+    label: '向左新增',
+    className: 'left-0 top-1/2 -translate-x-1/2 -translate-y-1/2',
+  },
+]
+
 function ExperimentNodeCardComponent({ data, selected }: NodeProps<ExperimentNodeData>) {
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [draftTitle, setDraftTitle] = useState(data.title)
@@ -241,6 +270,7 @@ function ExperimentNodeCardComponent({ data, selected }: NodeProps<ExperimentNod
       }}
     >
       <Handle type="target" position={Position.Left} className="!h-3 !w-3 !border-2 !border-paper !bg-ink" />
+      <Handle type="target" position={Position.Top} className="!h-3 !w-3 !border-2 !border-paper !bg-ink" />
 
       <ExperimentNodeCardBody
         branchLabel={data.branchLabel}
@@ -253,7 +283,7 @@ function ExperimentNodeCardComponent({ data, selected }: NodeProps<ExperimentNod
         setDraftTitle={setDraftTitle}
         commitTitle={commitTitle}
         onSelect={() => data.onSelect(data.nodeId)}
-        onBranch={() => data.onBranch(data.nodeId)}
+        onBranch={(direction) => data.onBranch(data.nodeId, direction)}
         onCycleStatus={() => data.onCycleStatus(data.nodeId)}
         onSetCompare={() => data.onSetCompare(data.nodeId)}
         onStartEditing={() => {
@@ -268,10 +298,33 @@ function ExperimentNodeCardComponent({ data, selected }: NodeProps<ExperimentNod
       />
 
       <Handle type="source" position={Position.Right} className="!h-3 !w-3 !border-2 !border-paper !bg-ink" />
+      <Handle type="source" position={Position.Bottom} className="!h-3 !w-3 !border-2 !border-paper !bg-ink" />
+
+      <div className="pointer-events-none absolute inset-0 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
+        {branchDirectionButtons.map((button) => (
+          <button
+            key={button.direction}
+            type="button"
+            aria-label={button.label}
+            title={button.label}
+            className={clsx(
+              'pointer-events-none nodrag nopan absolute flex h-8 w-8 items-center justify-center rounded-full border border-pencil bg-white/95 text-lg font-semibold leading-none text-ink shadow-[0_10px_24px_rgba(97,75,48,0.18)] transition hover:border-ink/35 hover:bg-sun focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink/45 group-hover:pointer-events-auto group-focus-within:pointer-events-auto',
+              button.className,
+            )}
+            onMouseDown={stopCardEvent}
+            onClick={(event) => {
+              stopCardEvent(event)
+              data.onBranch(data.nodeId, button.direction)
+            }}
+          >
+            +
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
 
 export const ExperimentNodeCard = memo(ExperimentNodeCardComponent)
 
-export type { ExperimentNodeData }
+export type { BranchDirection, ExperimentNodeData }

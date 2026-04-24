@@ -19,7 +19,7 @@ import 'reactflow/dist/style.css'
 
 import { computeTreeLayout, getNodePath, getVisibleNodeIds } from '../../lib/graph'
 import { useExperimentStore } from '../../store/experimentStore'
-import { ExperimentNodeCard, type ExperimentNodeData } from './ExperimentNodeCard'
+import { ExperimentNodeCard, type BranchDirection, type ExperimentNodeData } from './ExperimentNodeCard'
 
 const xGap = 360
 const yGap = 220
@@ -73,6 +73,74 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
   const visibleIdSet = useMemo(() => new Set(visibleNodeIds), [visibleNodeIds])
   const selectedPathSet = useMemo(() => new Set(selectedPath), [selectedPath])
 
+  const getNodeCanvasPosition = useCallback(
+    (nodeId: string): XYPosition => {
+      const node = document.nodesById[nodeId]
+      const autoPosition = layout[nodeId] ?? { x: 0, y: 0 }
+
+      return node?.manualPosition ?? {
+        x: autoPosition.x * xGap,
+        y: autoPosition.y * yGap,
+      }
+    },
+    [document, layout],
+  )
+
+  const hasPositionConflict = useCallback(
+    (position: XYPosition, ignoredNodeId: string) =>
+      Object.keys(document.nodesById).some((nodeId) => {
+        if (nodeId === ignoredNodeId) {
+          return false
+        }
+
+        const nodePosition = getNodeCanvasPosition(nodeId)
+        return Math.abs(nodePosition.x - position.x) < 140 && Math.abs(nodePosition.y - position.y) < 110
+      }),
+    [document, getNodeCanvasPosition],
+  )
+
+  const getBranchPosition = useCallback(
+    (nodeId: string, direction: BranchDirection = 'right'): XYPosition => {
+      const parentPosition = getNodeCanvasPosition(nodeId)
+      const offsets: Record<BranchDirection, XYPosition> = {
+        left: { x: -xGap, y: 0 },
+        right: { x: xGap, y: 0 },
+        top: { x: 0, y: -yGap },
+        bottom: { x: 0, y: yGap },
+      }
+      const stackOffset = direction === 'top' || direction === 'bottom'
+        ? { x: 90, y: 0 }
+        : { x: 0, y: 90 }
+      const desiredPosition = {
+        x: parentPosition.x + offsets[direction].x,
+        y: parentPosition.y + offsets[direction].y,
+      }
+
+      for (let index = 0; index < 24; index += 1) {
+        const directionMultiplier = index % 2 === 0 ? 1 : -1
+        const distance = Math.ceil(index / 2)
+        const candidate = {
+          x: desiredPosition.x + stackOffset.x * distance * directionMultiplier,
+          y: desiredPosition.y + stackOffset.y * distance * directionMultiplier,
+        }
+
+        if (!hasPositionConflict(candidate, nodeId)) {
+          return candidate
+        }
+      }
+
+      return desiredPosition
+    },
+    [getNodeCanvasPosition, hasPositionConflict],
+  )
+
+  const handleBranchFromNode = useCallback(
+    (nodeId: string, direction: BranchDirection = 'right') => {
+      branchFromNode(nodeId, getBranchPosition(nodeId, direction))
+    },
+    [branchFromNode, getBranchPosition],
+  )
+
   const documentNodes = useMemo<Node<ExperimentNodeData>[]>(() => {
     return Object.values(document.nodesById).map((node) => {
       const autoPosition = layout[node.id] ?? { x: 0, y: 0 }
@@ -105,14 +173,14 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
           isDimmed: !isVisible,
           attachmentCount: node.attachments.length,
           onSelect: selectNode,
-          onBranch: branchFromNode,
+          onBranch: handleBranchFromNode,
           onCycleStatus: cycleNodeStatus,
           onSetCompare: toggleCompareNode,
           onRename: updateNodeTitle,
         },
       }
     })
-  }, [activeDragNodeId, branchFromNode, compareNodeId, cycleNodeStatus, document, layout, selectNode, selectedNodeId, toggleCompareNode, updateNodeTitle, visibleIdSet])
+  }, [activeDragNodeId, compareNodeId, cycleNodeStatus, document, handleBranchFromNode, layout, selectNode, selectedNodeId, toggleCompareNode, updateNodeTitle, visibleIdSet])
 
   const documentEdges = useMemo<Edge[]>(() => {
     return Object.values(document.nodesById)
