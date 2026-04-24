@@ -53,7 +53,7 @@ export function AppShell() {
       />
 
       <main className="grid min-h-[calc(100vh-168px)] gap-6 px-6 py-6 xl:grid-cols-[minmax(0,1.35fr)_clamp(24rem,30vw,36rem)] 2xl:gap-8 2xl:px-8 2xl:py-8">
-        <section className="rounded-[32px] border border-pencil/70 bg-paper-deep/80 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]">
+        <section className="flex flex-col self-stretch rounded-[32px] border border-pencil/70 bg-paper-deep/80 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]">
           <div className="mb-4 flex items-start justify-between gap-4 px-1">
             <div>
               <p className="text-xs uppercase tracking-[0.24em] text-ink/45">Branch tree</p>

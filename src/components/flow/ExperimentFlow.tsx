@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ReactFlow, {
   Background,
   Controls,
   MarkerType,
   MiniMap,
   applyNodeChanges,
+  getNodesBounds,
   useEdgesState,
   useNodesState,
   type Edge,
@@ -13,6 +14,7 @@ import ReactFlow, {
   type NodeDragHandler,
   type NodeTypes,
   type OnNodesChange,
+  type ReactFlowInstance,
   type XYPosition,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
@@ -53,12 +55,24 @@ const proOptions = {
   hideAttribution: true,
 }
 
+const fitViewOptions = {
+  maxZoom: 0.9,
+  padding: 0.22,
+}
+
+const viewportPadding = {
+  x: 72,
+  y: 64,
+}
+
 type ExperimentFlowProps = {
   onCreateRoot: () => void
 }
 
 export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
   const [activeDragNodeId, setActiveDragNodeId] = useState<string | null>(null)
+  const flowInstanceRef = useRef<ReactFlowInstance | null>(null)
+  const flowContainerRef = useRef<HTMLDivElement | null>(null)
 
   const document = useExperimentStore((state) => state.document)
   const selectedNodeId = useExperimentStore((state) => state.selectedNodeId)
@@ -89,6 +103,41 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
 
   const visibleIdSet = useMemo(() => new Set(visibleNodeIds), [visibleNodeIds])
   const selectedPathSet = useMemo(() => new Set(selectedPath), [selectedPath])
+  const nodeIdsKey = useMemo(() => Object.keys(document.nodesById).sort().join('|'), [document.nodesById])
+
+  const scheduleFitView = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        const instance = flowInstanceRef.current
+        const container = flowContainerRef.current
+        if (!instance || !container) {
+          return
+        }
+
+        const measuredNodes = instance
+          .getNodes()
+          .filter((node) => node.width && node.height)
+        const bounds = measuredNodes.length ? getNodesBounds(measuredNodes) : null
+        const { width } = container.getBoundingClientRect()
+
+        if (!bounds || width <= 0) {
+          instance.fitView(fitViewOptions)
+          return
+        }
+
+        const zoom = Math.min(
+          fitViewOptions.maxZoom,
+          Math.max(0.35, (width - viewportPadding.x * 2) / bounds.width),
+        )
+
+        instance.setViewport({
+          x: (width - bounds.width * zoom) / 2 - bounds.x * zoom,
+          y: viewportPadding.y - bounds.y * zoom,
+          zoom,
+        })
+      }, 80)
+    })
+  }, [])
 
   const getNodeCanvasPosition = useCallback(
     (nodeId: string): XYPosition => {
@@ -233,6 +282,12 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
     setEdges(documentEdges)
   }, [documentEdges, setEdges])
 
+  useEffect(() => {
+    if (!activeDragNodeId) {
+      scheduleFitView()
+    }
+  }, [activeDragNodeId, nodeIdsKey, scheduleFitView])
+
   const handleNodesChange = useCallback<OnNodesChange>(
     (changes: NodeChange[]) => {
       setNodes((currentNodes) => applyNodeChanges(changes, currentNodes))
@@ -257,9 +312,17 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
     [setNodeManualPosition],
   )
 
+  const handleFlowInit = useCallback(
+    (instance: ReactFlowInstance) => {
+      flowInstanceRef.current = instance
+      scheduleFitView()
+    },
+    [scheduleFitView],
+  )
+
   if (!document.rootId) {
     return (
-      <div className="flex h-full min-h-[540px] items-center justify-center rounded-[30px] border border-dashed border-pencil bg-white/70 p-10 text-center shadow-note">
+      <div className="flex min-h-[540px] flex-1 items-center justify-center rounded-[30px] border border-dashed border-pencil bg-white/70 p-10 text-center shadow-note">
         <div className="max-w-md space-y-4">
           <p className="text-xs uppercase tracking-[0.28em] text-ink/45">实验树为空</p>
           <h2 className="font-title text-3xl text-ink">先落下第一张实验便签</h2>
@@ -275,13 +338,15 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
   }
 
   return (
-    <div className="h-full min-h-[640px] overflow-hidden rounded-[30px] border border-pencil bg-white/70 shadow-note">
+    <div ref={flowContainerRef} className="min-h-[640px] flex-1 overflow-hidden rounded-[30px] border border-pencil bg-white/70 shadow-note">
       <ReactFlow
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
         nodesDraggable
         fitView
+        fitViewOptions={fitViewOptions}
+        onInit={handleFlowInit}
         onNodeClick={(_, node) => selectNode(node.id)}
         onNodesChange={handleNodesChange}
         onNodeDragStart={handleNodeDragStart}

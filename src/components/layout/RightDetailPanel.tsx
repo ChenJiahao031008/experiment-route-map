@@ -29,7 +29,7 @@ export function RightDetailPanel({ onCreateRoot }: RightDetailPanelProps) {
 
   if (!selectedNode) {
     return (
-      <aside className="h-full rounded-[32px] border border-pencil bg-white/85 p-6 shadow-note">
+      <aside className="rounded-[32px] border border-pencil bg-white/85 p-6 shadow-note">
         <div className="flex h-full min-h-[540px] flex-col items-center justify-center text-center">
           <p className="text-xs uppercase tracking-[0.28em] text-ink/45">详情面板</p>
           <h2 className="mt-4 font-title text-3xl text-ink">还没有选中的实验</h2>
@@ -45,7 +45,7 @@ export function RightDetailPanel({ onCreateRoot }: RightDetailPanelProps) {
   }
 
   return (
-    <aside className="h-full rounded-[32px] border border-pencil bg-white/85 p-6 shadow-note">
+    <aside className="rounded-[32px] border border-pencil bg-white/85 p-6 shadow-note">
       <ExperimentForm
         node={selectedNode}
         compareNode={compareNode}

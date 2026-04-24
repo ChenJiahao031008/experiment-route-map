@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --config config/vite.config.ts",
+    "dev": "vite --config config/vite.config.ts --host 127.0.0.1 --port 4173",
     "build": "tsc -b config/tsconfig.json && vite build --config config/vite.config.ts",
     "lint": "eslint . --config config/eslint.config.js",
     "test": "vitest run --config config/vitest.config.ts",
