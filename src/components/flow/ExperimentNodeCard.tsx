@@ -372,4 +372,4 @@ function ExperimentNodeCardComponent({ data, selected }: NodeProps<ExperimentNod
 
 export const ExperimentNodeCard = memo(ExperimentNodeCardComponent)
 
-export type { BranchDirection, ExperimentNodeData }
+export type { ExperimentNodeData }

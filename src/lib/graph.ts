@@ -136,7 +136,7 @@ export const normalizeDocument = (raw: unknown): ExperimentDocument | null => {
   }
 }
 
-export const createExperimentNode = (
+const createExperimentNode = (
   draft: Partial<ExperimentDraft> = {},
   parentId: ExperimentNodeId | null = null,
 ): ExperimentNode => {
@@ -308,9 +308,10 @@ export const updateExperimentNodeManualPosition = (
     ...document,
     nodesById: {
       ...document.nodesById,
-    [nodeId]: {
-      ...node,
-      manualPosition: normalizeManualPosition(manualPosition),
+      [nodeId]: {
+        ...node,
+        manualPosition: normalizeManualPosition(manualPosition),
+        updatedAt: nowIso(),
       },
     },
   }
@@ -455,18 +456,6 @@ export const deleteExperimentSubtree = (
   }
 }
 
-export const getExperimentDepth = (
-  document: ExperimentDocument,
-  nodeId: ExperimentNodeId,
-): number => {
-  const node = document.nodesById[nodeId]
-  if (!node || !node.parentId) {
-    return 0
-  }
-
-  return getExperimentDepth(document, node.parentId) + 1
-}
-
 export const getNodePath = (
   document: ExperimentDocument,
   nodeId: ExperimentNodeId | null,
@@ -521,28 +510,24 @@ export const getVisibleNodeIds = (
     .sort((left, right) => toTimestampValue(left.timestamp) - toTimestampValue(right.timestamp))
     .map((node) => node.id)
 
-const getSubtreeWeight = (document: ExperimentDocument, nodeId: ExperimentNodeId): number => {
-  const node = document.nodesById[nodeId]
-  if (!node || node.childIds.length === 0) {
-    return 1
-  }
-
-  return node.childIds.reduce((sum, childId) => sum + getSubtreeWeight(document, childId), 0)
-}
-
 const assignTreeLayout = (
   document: ExperimentDocument,
   nodeId: ExperimentNodeId,
+  depth: number,
   startRow: number,
   positions: Record<ExperimentNodeId, { x: number; y: number }>,
-) => {
+): number => {
   const node = document.nodesById[nodeId]
   if (!node) {
-    return startRow
+    return 1
   }
 
-  const depth = getExperimentDepth(document, nodeId)
-  const subtreeWeight = getSubtreeWeight(document, nodeId)
+  let nextRow = startRow
+  const subtreeWeight = node.childIds.reduce<number>((sum, childId) => {
+    const childWeight = assignTreeLayout(document, childId, depth + 1, nextRow, positions)
+    nextRow += childWeight
+    return sum + childWeight
+  }, 0) || 1
   const centerRow = startRow + (subtreeWeight - 1) / 2
 
   positions[nodeId] = {
@@ -550,20 +535,14 @@ const assignTreeLayout = (
     y: centerRow,
   }
 
-  let nextRow = startRow
-  node.childIds.forEach((childId) => {
-    assignTreeLayout(document, childId, nextRow, positions)
-    nextRow += getSubtreeWeight(document, childId)
-  })
-
-  return startRow + subtreeWeight
+  return subtreeWeight
 }
 
 export const computeTreeLayout = (document: ExperimentDocument) => {
   const positions: Record<ExperimentNodeId, { x: number; y: number }> = {}
 
   if (document.rootId) {
-    assignTreeLayout(document, document.rootId, 0, positions)
+    assignTreeLayout(document, document.rootId, 0, 0, positions)
   }
 
   return positions

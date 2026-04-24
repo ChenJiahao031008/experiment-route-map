@@ -70,6 +70,26 @@ const viewportPadding = {
   y: 64,
 }
 const nodeDropTargetPadding = 28
+type PositionedNode = Pick<Node, 'position' | 'width' | 'height'>
+
+const getNodeCenter = (node: PositionedNode): XYPosition => ({
+  x: node.position.x + (node.width ?? 0) / 2,
+  y: node.position.y + (node.height ?? 0) / 2,
+})
+
+const isPointInsidePaddedNode = (point: XYPosition, node: PositionedNode, padding: number) => {
+  const width = node.width ?? 0
+  const height = node.height ?? 0
+
+  return (
+    point.x >= node.position.x - padding &&
+    point.x <= node.position.x + width + padding &&
+    point.y >= node.position.y - padding &&
+    point.y <= node.position.y + height + padding
+  )
+}
+
+const getDistance = (from: XYPosition, to: XYPosition) => Math.hypot(from.x - to.x, from.y - to.y)
 
 type ExperimentFlowProps = {
   onCreateRoot: () => void
@@ -135,13 +155,7 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
         return null
       }
 
-      const draggedWidth = draggedNode.width ?? 0
-      const draggedHeight = draggedNode.height ?? 0
-      const draggedCenter = {
-        x: draggedNode.position.x + draggedWidth / 2,
-        y: draggedNode.position.y + draggedHeight / 2,
-      }
-
+      const draggedCenter = getNodeCenter(draggedNode)
       let bestTargetId: string | null = null
       let bestTargetDistance = Number.POSITIVE_INFINITY
 
@@ -150,27 +164,11 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
           return
         }
 
-        const width = candidateNode.width ?? 0
-        const height = candidateNode.height ?? 0
-        const left = candidateNode.position.x - nodeDropTargetPadding
-        const right = candidateNode.position.x + width + nodeDropTargetPadding
-        const top = candidateNode.position.y - nodeDropTargetPadding
-        const bottom = candidateNode.position.y + height + nodeDropTargetPadding
-
-        if (
-          draggedCenter.x < left ||
-          draggedCenter.x > right ||
-          draggedCenter.y < top ||
-          draggedCenter.y > bottom
-        ) {
+        if (!isPointInsidePaddedNode(draggedCenter, candidateNode, nodeDropTargetPadding)) {
           return
         }
 
-        const candidateCenter = {
-          x: candidateNode.position.x + width / 2,
-          y: candidateNode.position.y + height / 2,
-        }
-        const distance = Math.hypot(draggedCenter.x - candidateCenter.x, draggedCenter.y - candidateCenter.y)
+        const distance = getDistance(draggedCenter, getNodeCenter(candidateNode))
 
         if (distance < bestTargetDistance) {
           bestTargetId = candidateNode.id

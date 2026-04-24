@@ -17,7 +17,6 @@ import {
 } from '../lib/graph'
 import {
   defaultExperimentDraft,
-  type ExperimentAttachment,
   type BranchDirection,
   type ExperimentDocument,
   type ExperimentDraft,
@@ -61,8 +60,6 @@ type ExperimentStoreActions = {
   deleteSelectedNode: () => void
   setSearchQuery: (query: string) => void
   toggleStatusFilter: (status: ExperimentStatus) => void
-  addDraftAttachment: (attachment: ExperimentAttachment) => void
-  removeDraftAttachment: (attachmentId: string) => void
 }
 
 type ExperimentStore = ExperimentStoreState & ExperimentStoreActions
@@ -355,25 +352,6 @@ export const useExperimentStore = create<ExperimentStore>()(
           }))
         },
 
-        addDraftAttachment: (attachment) => {
-          set((state) => ({
-            detailDraft: {
-              ...state.detailDraft,
-              attachments: [...state.detailDraft.attachments, attachment],
-            },
-          }))
-        },
-
-        removeDraftAttachment: (attachmentId) => {
-          set((state) => ({
-            detailDraft: {
-              ...state.detailDraft,
-              attachments: state.detailDraft.attachments.filter(
-                (attachment) => attachment.id !== attachmentId,
-              ),
-            },
-          }))
-        },
       }
     },
     {
@@ -395,6 +373,7 @@ export const useExperimentStore = create<ExperimentStore>()(
             ? state.compareNodeId
             : null
         const selectedNode = getNodeById(nextDocument, selectedNodeId)
+        const baseDraft = getDraftFromNode(selectedNode)
 
         return {
           ...state,
@@ -402,12 +381,12 @@ export const useExperimentStore = create<ExperimentStore>()(
           selectedNodeId,
           compareNodeId,
           detailDraft: {
-            ...getDraftFromNode(selectedNode),
+            ...baseDraft,
             ...(state.detailDraft ?? {}),
-            tags: state.detailDraft?.tags ? [...state.detailDraft.tags] : getDraftFromNode(selectedNode).tags,
+            tags: state.detailDraft?.tags ? [...state.detailDraft.tags] : baseDraft.tags,
             attachments: state.detailDraft?.attachments
               ? [...state.detailDraft.attachments]
-              : getDraftFromNode(selectedNode).attachments,
+              : baseDraft.attachments,
           },
           searchQuery: state.searchQuery ?? '',
           statusFilters: state.statusFilters ?? [],

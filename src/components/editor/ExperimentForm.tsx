@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   MDXEditor,
   codeBlockPlugin,
@@ -96,7 +96,7 @@ export function ExperimentForm({
   const [markdownModes, setMarkdownModes] = useState<Partial<Record<MarkdownFieldKey, MarkdownMode>>>({})
   const [attachmentError, setAttachmentError] = useState('')
 
-  const parentLabel = useMemo(() => (node.parentId ? node.parentId : '根实验'), [node.parentId])
+  const parentLabel = node.parentId ?? '根实验'
 
   const addTag = () => {
     const nextTag = tagInput.trim()

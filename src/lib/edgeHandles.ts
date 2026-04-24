@@ -55,5 +55,3 @@ export const getBranchDirectionFromHandle = (handleId: string | null | undefined
 
   return undefined
 }
-
-export type { BranchDirection }
