@@ -1,3 +1,5 @@
+import { useCallback } from 'react'
+
 import { ExperimentForm } from '../editor/ExperimentForm'
 import {
   useCompareExperiment,
@@ -27,6 +29,12 @@ export function RightDetailPanel({ onCreateRoot }: RightDetailPanelProps) {
   const deleteImpactCount = useDeleteImpactCount()
   const hasUnsavedChanges = useHasUnsavedChanges()
 
+  const saveOnPanelLeave = useCallback(() => {
+    if (hasUnsavedChanges) {
+      saveSelectedNode()
+    }
+  }, [hasUnsavedChanges, saveSelectedNode])
+
   if (!selectedNode) {
     return (
       <aside className="rounded-[32px] border border-pencil bg-white/85 p-6 shadow-note">
@@ -45,7 +53,7 @@ export function RightDetailPanel({ onCreateRoot }: RightDetailPanelProps) {
   }
 
   return (
-    <aside className="rounded-[32px] border border-pencil bg-white/85 p-6 shadow-note">
+    <aside className="rounded-[32px] border border-pencil bg-white/85 p-6 shadow-note" onMouseLeave={saveOnPanelLeave}>
       <ExperimentForm
         node={selectedNode}
         compareNode={compareNode}
