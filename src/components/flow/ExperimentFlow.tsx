@@ -75,6 +75,7 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
   const [activeDragNodeId, setActiveDragNodeId] = useState<string | null>(null)
   const flowInstanceRef = useRef<ReactFlowInstance | null>(null)
   const flowContainerRef = useRef<HTMLDivElement | null>(null)
+  const lastAutoFitNodeIdsKeyRef = useRef<string | null>(null)
 
   const document = useExperimentStore((state) => state.document)
   const selectedNodeId = useExperimentStore((state) => state.selectedNodeId)
@@ -291,9 +292,12 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
   }, [documentEdges, setEdges])
 
   useEffect(() => {
-    if (!activeDragNodeId) {
-      scheduleFitView()
+    if (activeDragNodeId || lastAutoFitNodeIdsKeyRef.current === nodeIdsKey) {
+      return
     }
+
+    lastAutoFitNodeIdsKeyRef.current = nodeIdsKey
+    scheduleFitView()
   }, [activeDragNodeId, nodeIdsKey, scheduleFitView])
 
   const handleNodesChange = useCallback<OnNodesChange>(
