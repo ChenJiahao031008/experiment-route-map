@@ -33,11 +33,11 @@ const statusClasses: Record<ExperimentStatus, string> = {
   archived: 'bg-archived/90 text-archived-ink border-archived/85',
 }
 
-function CardMarkdownSummary({ value, fallback }: { value: string; fallback: string }) {
+function CardMarkdownSummary({ value }: { value: string }) {
   const content = value.trim()
 
   if (!content) {
-    return <p className="mt-1 line-clamp-2 min-h-[2.5rem]">{fallback}</p>
+    return null
   }
 
   return (
@@ -61,7 +61,6 @@ type ExperimentNodeCardBodyProps = {
   onBranch: (direction?: BranchDirection) => void
   onCycleStatus: () => void
   onSetCompare: () => void
-  onStartEditing: () => void
   changeSummary: string
   conclusion: string
   timestamp: string
@@ -83,7 +82,6 @@ const ExperimentNodeCardBody = memo(function ExperimentNodeCardBody({
   onBranch,
   onCycleStatus,
   onSetCompare,
-  onStartEditing,
   changeSummary,
   conclusion,
   timestamp,
@@ -184,34 +182,16 @@ const ExperimentNodeCardBody = memo(function ExperimentNodeCardBody({
         >
           对比
         </button>
-        <button
-          type="button"
-          className="node-chip nodrag nopan"
-          onMouseDown={stopCardEvent}
-          onClick={(event) => {
-            stopCardEvent(event)
-            onStartEditing()
-          }}
-        >
-          改标题
-        </button>
       </div>
 
       <div className="space-y-2 text-xs leading-5 text-ink/80">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.16em] text-ink/45">改动内容</p>
-          <CardMarkdownSummary value={changeSummary} fallback="尚未记录本次改动。" />
-        </div>
-
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.16em] text-ink/45">实验结论</p>
-          <p className="mt-1 line-clamp-2 min-h-[2.5rem]">{conclusion || '尚未沉淀出明确结论。'}</p>
-        </div>
+        <CardMarkdownSummary value={changeSummary} />
+        {conclusion.trim() ? <p className="mt-1 line-clamp-2 min-h-[2.5rem]">{conclusion}</p> : null}
       </div>
 
       <div className="mt-3 flex items-center justify-between gap-2 border-t border-dashed border-pencil/80 pt-2 text-[11px] text-ink/55">
-        <span>记录时间：{timestamp || '未填写'}</span>
-        <span>{attachmentCount > 0 ? `${attachmentCount} 张图` : '无附件'}</span>
+        <span>{timestamp}</span>
+        {attachmentCount > 0 ? <span>{attachmentCount} 张图</span> : null}
       </div>
     </>
   )
@@ -327,7 +307,6 @@ function ExperimentNodeCardComponent({ data, selected }: NodeProps<ExperimentNod
         onBranch={(direction) => data.onBranch(data.nodeId, direction)}
         onCycleStatus={() => data.onCycleStatus(data.nodeId)}
         onSetCompare={() => data.onSetCompare(data.nodeId)}
-        onStartEditing={startEditingTitle}
         changeSummary={data.changeSummary}
         conclusion={data.conclusion}
         timestamp={data.timestamp}

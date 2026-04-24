@@ -274,7 +274,6 @@ export function ExperimentForm({
                 <MarkdownRichEditor
                   value={value}
                   minHeightClassName={minHeightClassName}
-                  placeholder="输入 Markdown，内容会像 Typora 一样实时渲染。"
                   onChange={(nextValue) => onChange({ [key]: nextValue } as Partial<ExperimentDraft>)}
                 />
               ) : markdownMode === 'source' ? (
@@ -395,11 +394,10 @@ export function ExperimentForm({
 type MarkdownRichEditorProps = {
   value: string
   minHeightClassName: string
-  placeholder: string
   onChange: (value: string) => void
 }
 
-function MarkdownRichEditor({ value, minHeightClassName, placeholder, onChange }: MarkdownRichEditorProps) {
+function MarkdownRichEditor({ value, minHeightClassName, onChange }: MarkdownRichEditorProps) {
   const editorRef = useRef<MDXEditorMethods>(null)
   const lastEditorValueRef = useRef(value)
 
@@ -415,7 +413,6 @@ function MarkdownRichEditor({ value, minHeightClassName, placeholder, onChange }
       ref={editorRef}
       markdown={value}
       plugins={markdownEditorPlugins}
-      placeholder={placeholder}
       className="markdown-rich-editor"
       contentEditableClassName={`markdown-rich-editable ${minHeightClassName}`}
       onChange={(nextValue, initialMarkdownNormalize) => {
