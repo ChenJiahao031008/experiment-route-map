@@ -10,6 +10,7 @@ import ReactFlow, {
   useNodesState,
   type Connection,
   type Edge,
+  type EdgeTypes,
   type Node,
   type NodeChange,
   type NodeDragHandler,
@@ -27,6 +28,7 @@ import { collectSubtreeIds, computeTreeLayout, getNodePath, getVisibleNodeIds } 
 import { useExperimentStore } from '../../store/experimentStore'
 import type { BranchDirection } from '../../types/experiment'
 import { ExperimentNodeCard, type ExperimentNodeData } from './ExperimentNodeCard'
+import { OrthogonalAdjustableEdge, type OrthogonalAdjustableEdgeData } from './OrthogonalAdjustableEdge'
 
 const xGap = 300
 const yGap = 180
@@ -52,8 +54,12 @@ const nodeTypes: NodeTypes = {
   experiment: ExperimentNodeCard,
 }
 
+const edgeTypes: EdgeTypes = {
+  orthogonalAdjustable: OrthogonalAdjustableEdge,
+}
+
 const defaultEdgeOptions = {
-  type: 'smoothstep' as const,
+  type: 'orthogonalAdjustable',
 }
 
 const proOptions = {
@@ -115,6 +121,7 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
   const setNodeManualPosition = useExperimentStore((state) => state.setNodeManualPosition)
   const moveNodeToParent = useExperimentStore((state) => state.moveNodeToParent)
   const updateNodeEdgeConnection = useExperimentStore((state) => state.updateNodeEdgeConnection)
+  const updateNodeEdgeBend = useExperimentStore((state) => state.updateNodeEdgeBend)
 
   const toggleCompareNode = useCallback(
     (nodeId: string) => setCompareNode(nodeId === compareNodeId ? null : nodeId),
@@ -317,7 +324,7 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
     })
   }, [activeDragNodeId, activeDropTargetNodeId, compareNodeId, cycleNodeStatus, document, getNodeCanvasPosition, handleBranchFromNode, selectNode, selectedNodeId, toggleCompareNode, updateNodeTitle, visibleIdSet])
 
-  const documentEdges = useMemo<Edge[]>(() => {
+  const documentEdges = useMemo<Edge<OrthogonalAdjustableEdgeData>[]>(() => {
     return Object.values(document.nodesById)
       .filter((node) => node.parentId)
       .map((node) => {
@@ -333,6 +340,7 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
           id: `${node.parentId}-${node.id}`,
           source: node.parentId!,
           target: node.id,
+          type: 'orthogonalAdjustable',
           ...edgeHandles,
           animated: isOnSelectedPath,
           markerEnd: { type: MarkerType.ArrowClosed },
@@ -341,9 +349,15 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
             strokeWidth: isOnSelectedPath ? 2.5 : 1.5,
             opacity: visibleIdSet.has(node.id) ? 1 : 0.2,
           },
+          data: {
+            targetNodeId: node.id,
+            edgeBend: node.edgeBend,
+            onBendChange: updateNodeEdgeBend,
+            onBendReset: updateNodeEdgeBend,
+          },
         }
       })
-  }, [document, getNodeCanvasPosition, selectedPathSet, visibleIdSet])
+  }, [document, getNodeCanvasPosition, selectedPathSet, updateNodeEdgeBend, visibleIdSet])
 
   const [nodes, setNodes] = useNodesState(documentNodes)
   const [edges, setEdges] = useEdgesState(documentEdges)
@@ -492,6 +506,7 @@ export function ExperimentFlow({ onCreateRoot }: ExperimentFlowProps) {
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         nodesDraggable
         edgesUpdatable
         reconnectRadius={16}

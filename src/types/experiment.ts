@@ -23,6 +23,15 @@ export type ExperimentManualPosition = {
   y: number
 }
 
+export type ExperimentEdgeBend = {
+  centerXOffset?: number
+  centerYOffset?: number
+  sourceXOffset?: number
+  sourceYOffset?: number
+  targetXOffset?: number
+  targetYOffset?: number
+}
+
 export type ExperimentEdgeConnection = {
   sourceDirection: BranchDirection
   targetDirection: BranchDirection
@@ -44,6 +53,7 @@ export type ExperimentNode = {
   attachments: ExperimentAttachment[]
   branchDirection?: BranchDirection
   edgeConnection?: ExperimentEdgeConnection
+  edgeBend?: ExperimentEdgeBend
   manualPosition?: ExperimentManualPosition
   createdAt: string
   updatedAt: string

@@ -13,6 +13,7 @@ import {
   moveExperimentSubtree,
   normalizeDocument,
   serializeExperimentDocument,
+  updateExperimentEdgeBend,
   updateExperimentEdgeConnection,
   updateExperimentNodeManualPosition,
 } from '../src/lib/graph'
@@ -181,6 +182,53 @@ describe('graph helpers', () => {
     expect(normalized?.nodesById.child?.manualPosition).toBeUndefined()
   })
 
+  it('preserves valid edge bends and ignores invalid ones during normalization', () => {
+    const normalized = normalizeDocument({
+      rootId: 'root',
+      nodesById: {
+        root: {
+          id: 'root',
+          parentId: null,
+          childIds: ['child'],
+          title: 'Root',
+          changeSummary: '',
+          result: '',
+          conclusion: '',
+          status: 'running',
+          timestamp: '2026-04-23T09:00',
+          tags: [],
+          notes: '',
+          branchLabel: '',
+        },
+        child: {
+          id: 'child',
+          parentId: 'root',
+          childIds: [],
+          title: 'Child',
+          changeSummary: '',
+          result: '',
+          conclusion: '',
+          status: 'running',
+          timestamp: '2026-04-23T09:10',
+          tags: [],
+          notes: '',
+          branchLabel: '',
+          edgeBend: { centerXOffset: 220, centerYOffset: Number.POSITIVE_INFINITY },
+        },
+        invalid: {
+          id: 'invalid',
+          parentId: 'root',
+          childIds: [],
+          title: 'Invalid',
+          edgeBend: { centerXOffset: 'bad', centerYOffset: Number.NaN },
+        },
+      },
+    })
+
+    expect(normalized?.nodesById.child?.edgeBend).toEqual({ centerXOffset: 220 })
+    expect(normalized?.nodesById.invalid?.edgeBend).toBeUndefined()
+  })
+
   it('computes subtree-aware layout without overlapping sibling branches', () => {
     const initial = createInitialDocument()
     const { document: rootDocument, createdNodeId: rootId } = createRootExperiment(initial, {
@@ -306,6 +354,46 @@ describe('graph helpers', () => {
       sourceDirection: 'top',
       targetDirection: 'left',
     })
+  })
+
+  it('updates an edge bend without changing tree structure', () => {
+    const initial = createInitialDocument()
+    const { document: rootDocument, createdNodeId: rootId } = createRootExperiment(initial, {
+      title: 'Root',
+    })
+    const { document: childDocument, createdNodeId: childId } = addChildExperiment(
+      rootDocument,
+      rootId,
+      { title: 'Child' },
+    )
+
+    const bentDocument = updateExperimentEdgeBend(childDocument, childId, {
+      centerXOffset: 320,
+    })
+
+    expect(bentDocument.nodesById[rootId]?.childIds).toEqual([childId])
+    expect(bentDocument.nodesById[childId]?.parentId).toBe(rootId)
+    expect(bentDocument.nodesById[childId]?.edgeBend).toEqual({ centerXOffset: 320 })
+  })
+
+  it('clears edge bends when edge handles are changed', () => {
+    const initial = createInitialDocument()
+    const { document: rootDocument, createdNodeId: rootId } = createRootExperiment(initial, {
+      title: 'Root',
+    })
+    const { document: childDocument, createdNodeId: childId } = addChildExperiment(
+      rootDocument,
+      rootId,
+      { title: 'Child' },
+    )
+    const bentDocument = updateExperimentEdgeBend(childDocument, childId, { centerYOffset: 120 })
+
+    const nextDocument = updateExperimentEdgeConnection(bentDocument, childId, {
+      sourceDirection: 'top',
+      targetDirection: 'bottom',
+    })
+
+    expect(nextDocument.nodesById[childId]?.edgeBend).toBeUndefined()
   })
 
   it('moves a subtree to a different parent without changing descendants', () => {

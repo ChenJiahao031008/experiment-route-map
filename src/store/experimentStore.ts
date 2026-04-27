@@ -11,6 +11,7 @@ import {
   getNodeById,
   normalizeDocument,
   moveExperimentSubtree,
+  updateExperimentEdgeBend,
   updateExperimentEdgeConnection,
   updateExperimentNode,
   updateExperimentNodeManualPosition,
@@ -20,6 +21,7 @@ import {
   type BranchDirection,
   type ExperimentDocument,
   type ExperimentDraft,
+  type ExperimentEdgeBend,
   type ExperimentEdgeConnection,
   type ExperimentManualPosition,
   type ExperimentNode,
@@ -57,6 +59,7 @@ type ExperimentStoreActions = {
     branchDirection?: BranchDirection,
   ) => void
   updateNodeEdgeConnection: (nodeId: ExperimentNodeId, edgeConnection: ExperimentEdgeConnection) => void
+  updateNodeEdgeBend: (nodeId: ExperimentNodeId, edgeBend?: ExperimentEdgeBend) => void
   deleteSelectedNode: () => void
   setSearchQuery: (query: string) => void
   toggleStatusFilter: (status: ExperimentStatus) => void
@@ -318,6 +321,13 @@ export const useExperimentStore = create<ExperimentStore>()(
         updateNodeEdgeConnection: (nodeId, edgeConnection) => {
           const state = get()
           const nextDocument = updateExperimentEdgeConnection(state.document, nodeId, edgeConnection)
+
+          set({ document: nextDocument })
+        },
+
+        updateNodeEdgeBend: (nodeId, edgeBend) => {
+          const state = get()
+          const nextDocument = updateExperimentEdgeBend(state.document, nodeId, edgeBend)
 
           set({ document: nextDocument })
         },

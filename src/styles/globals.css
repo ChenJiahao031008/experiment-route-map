@@ -220,6 +220,64 @@ select {
   display: none;
 }
 
+.edge-bend-handle {
+  position: absolute;
+  min-width: 14px;
+  min-height: 14px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  appearance: none;
+  background: transparent;
+  opacity: 0.65;
+  pointer-events: all;
+  z-index: 20;
+  transition: opacity 160ms ease;
+}
+
+.edge-bend-handle::after {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  content: '';
+  border: 1px solid rgba(122, 95, 59, 0.5);
+  border-radius: 999px;
+  background: rgba(255, 250, 241, 0.9);
+  box-shadow: 0 2px 8px rgba(74, 58, 44, 0.12);
+  transform: translate(-50%, -50%);
+}
+
+.edge-bend-handle:hover,
+.edge-bend-handle:focus-visible,
+.edge-bend-handle.is-set {
+  opacity: 1;
+}
+
+.edge-bend-handle-x {
+  width: 14px;
+  cursor: ew-resize;
+}
+
+.edge-bend-handle-x::after {
+  width: 4px;
+  height: 20px;
+}
+
+.edge-bend-handle-y {
+  height: 14px;
+  cursor: ns-resize;
+}
+
+.edge-bend-handle-y::after {
+  width: 20px;
+  height: 4px;
+}
+
+.edge-bend-handle:active::after {
+  border-color: rgba(122, 95, 59, 0.85);
+  background: rgba(241, 210, 138, 0.95);
+}
+
 .react-flow__controls,
 .react-flow__minimap {
   border-radius: 16px;

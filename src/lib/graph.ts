@@ -6,6 +6,7 @@ import {
   type ExperimentAttachment,
   type ExperimentDocument,
   type ExperimentDraft,
+  type ExperimentEdgeBend,
   type ExperimentEdgeConnection,
   type ExperimentManualPosition,
   type ExperimentNode,
@@ -77,6 +78,32 @@ const normalizeManualPosition = (
   return { x, y }
 }
 
+const normalizeEdgeBend = (
+  edgeBend: Partial<ExperimentEdgeBend> | undefined,
+): ExperimentEdgeBend | undefined => {
+  if (!edgeBend) {
+    return undefined
+  }
+
+  const normalizedBend: ExperimentEdgeBend = {}
+
+  ;([
+    'centerXOffset',
+    'centerYOffset',
+    'sourceXOffset',
+    'sourceYOffset',
+    'targetXOffset',
+    'targetYOffset',
+  ] as const).forEach((key) => {
+    const value = edgeBend[key]
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      normalizedBend[key] = value
+    }
+  })
+
+  return Object.keys(normalizedBend).length ? normalizedBend : undefined
+}
+
 export const normalizeDocument = (raw: unknown): ExperimentDocument | null => {
   if (!raw || typeof raw !== 'object') {
     return null
@@ -117,6 +144,7 @@ export const normalizeDocument = (raw: unknown): ExperimentDocument | null => {
         attachments: normalizeAttachments(node.attachments),
         branchDirection: normalizeBranchDirection(node.branchDirection),
         edgeConnection: normalizeEdgeConnection(node.edgeConnection),
+        edgeBend: normalizeEdgeBend(node.edgeBend),
         manualPosition: normalizeManualPosition(node.manualPosition),
         createdAt: node.createdAt ?? nowIso(),
         updatedAt: node.updatedAt ?? node.createdAt ?? nowIso(),
@@ -162,6 +190,7 @@ const createExperimentNode = (
     attachments: normalizeAttachments(baseDraft.attachments),
     branchDirection: undefined,
     edgeConnection: undefined,
+    edgeBend: undefined,
     manualPosition: undefined,
     createdAt,
     updatedAt: createdAt,
@@ -335,6 +364,31 @@ export const updateExperimentEdgeConnection = (
       [nodeId]: {
         ...node,
         edgeConnection: normalizeEdgeConnection(edgeConnection),
+        edgeBend: undefined,
+        updatedAt: nowIso(),
+      },
+    },
+  }
+}
+
+export const updateExperimentEdgeBend = (
+  document: ExperimentDocument,
+  nodeId: ExperimentNodeId,
+  edgeBend?: ExperimentEdgeBend,
+) => {
+  const node = document.nodesById[nodeId]
+
+  if (!node) {
+    throw new Error(`Experiment ${nodeId} not found`)
+  }
+
+  return {
+    ...document,
+    nodesById: {
+      ...document.nodesById,
+      [nodeId]: {
+        ...node,
+        edgeBend: normalizeEdgeBend(edgeBend),
         updatedAt: nowIso(),
       },
     },
@@ -396,6 +450,7 @@ export const moveExperimentSubtree = (
         parentId: nextParentId,
         branchDirection: normalizedBranchDirection,
         edgeConnection: undefined,
+        edgeBend: undefined,
         manualPosition: normalizedManualPosition,
         updatedAt,
       },
